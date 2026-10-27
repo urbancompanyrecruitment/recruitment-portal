@@ -1,0 +1,57 @@
+import { ThemeConfig } from 'antd';
+
+export const COLOR = {
+  primary: '#7839e8',
+  primarySoft: '#f2edfc',
+  ink: '#242537',
+  muted: '#777b8c',
+  line: '#e7e9f0',
+  page: '#f7f8fc',
+  green: '#158060',
+  greenSoft: '#eaf8f0',
+  amber: '#936414',
+  amberSoft: '#fff4de',
+  red: '#b3344b',
+};
+
+export const THEME: ThemeConfig = {
+  token: {
+    colorPrimary: COLOR.primary,
+    colorInfo: COLOR.primary,
+    colorLink: COLOR.primary,
+    colorText: COLOR.ink,
+    colorTextSecondary: COLOR.muted,
+    colorBorder: '#dfe2eb',
+    colorBorderSecondary: COLOR.line,
+    colorBgLayout: COLOR.page,
+    colorSuccess: COLOR.green,
+    colorSuccessBg: COLOR.greenSoft,
+    colorSuccessBorder: '#d6ecdf',
+    colorWarning: '#c48a1c',
+    colorWarningBg: COLOR.amberSoft,
+    colorWarningBorder: '#f1dcae',
+    colorError: COLOR.red,
+    colorErrorBg: '#fdeef1',
+    colorErrorBorder: '#f3cdd6',
+    borderRadius: 8,
+    borderRadiusLG: 12,
+    controlHeight: 42,
+    fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
+    fontSize: 14,
+  },
+  components: {
+    Layout: { siderBg: '#ffffff', headerBg: '#ffffff', headerHeight: 82, headerPadding: '0 36px' },
+    Menu: {
+      itemSelectedBg: COLOR.primarySoft,
+      itemSelectedColor: COLOR.primary,
+      itemColor: COLOR.muted,
+      itemBorderRadius: 8,
+      itemMarginInline: 0,
+      activeBarBorderWidth: 0,
+    },
+    Table: { headerBg: '#fafafd', headerColor: COLOR.muted, cellPaddingBlock: 16, cellPaddingInline: 18 },
+    Card: { paddingLG: 23 },
+    Button: { fontWeight: 600 },
+    Tag: { defaultBg: COLOR.primarySoft, defaultColor: COLOR.primary },
+  },
+};

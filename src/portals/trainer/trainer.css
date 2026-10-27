@@ -1,0 +1,101 @@
+.trainer-toolbar {
+  padding: 4px 20px 18px;
+  border-bottom: 1px solid #e7e9f0;
+}
+
+.trainer-toolbar .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.trainer-filter {
+  min-width: 190px;
+}
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.stage-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #e7e9f0;
+  border-radius: 12px;
+  background: #fafafd;
+}
+
+.stage-box-locked {
+  opacity: 0.72;
+}
+
+.notes-list {
+  margin-top: 22px;
+}
+
+.note-item {
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid #e1d4f7;
+}
+
+.schedule-toolbar {
+  margin-bottom: 22px;
+}
+
+.schedule-day + .schedule-day {
+  margin-top: 30px;
+}
+
+.schedule-day-title {
+  margin-bottom: 12px;
+}
+
+.session-card {
+  height: 100%;
+}
+
+.session-bookings {
+  margin: 14px 0 12px;
+  color: #777b8c;
+}
+
+.session-bookings strong {
+  color: #242537;
+}
+
+.session-candidate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e7e9f0;
+  border-radius: 10px;
+  color: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.session-candidate:hover {
+  border-color: #d6c6f6;
+  background: #faf7fe;
+}
+
+.session-candidate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .trainer-toolbar {
+    padding: 4px 14px 14px;
+  }
+
+  .trainer-filter {
+    flex: 1 1 100%;
+  }
+
+  .session-candidate {
+    flex-wrap: wrap;
+  }
+}

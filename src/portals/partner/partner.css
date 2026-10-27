@@ -1,0 +1,49 @@
+.partner-layout {
+  min-height: 100vh;
+}
+
+.partner-header {
+  background: #fff;
+  border-bottom: 1px solid #e7e9f0;
+  padding: 18px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.partner-content {
+  max-width: 1100px;
+}
+
+.slot-options {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.slot-option {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #dfe2eb;
+  border-radius: 8px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.slot-option.ant-radio-wrapper-checked {
+  border-color: #7839e8;
+  background: #f6f1fd;
+}
+
+.centre-box {
+  background: #f5f0fc;
+  border-radius: 9px;
+  padding: 18px 20px;
+}
+
+@media (max-width: 760px) {
+  .partner-header {
+    padding: 14px 17px;
+  }
+}
