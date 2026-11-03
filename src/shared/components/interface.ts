@@ -1,6 +1,12 @@
 import { ReactNode } from 'react';
 import { StageResult, UserRole } from '@/domain/interface';
 
+declare global {
+  interface Window {
+    google?: typeof google;
+  }
+}
+
 export type NoticeTone = 'info' | 'success' | 'warning';
 
 export interface NavItem {
@@ -41,20 +47,13 @@ export interface ResultTagProps {
   label?: string;
 }
 
-export interface DemoAccount {
-  label: string;
-  loginId: string;
-}
-
-export interface StaffLoginProps {
-  role: UserRole;
+export interface LoginShellProps {
   title: string;
   subtitle: string;
-  demoAccounts: DemoAccount[];
   hero?: ReactNode;
+  children: ReactNode;
 }
 
-export interface LoginFormValues {
-  loginId: string;
-  password: string;
+export interface GoogleSignInProps {
+  onCredential: (credential: string) => void;
 }

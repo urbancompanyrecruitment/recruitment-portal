@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": ["vite/client", "node", "vitest/globals", "@testing-library/jest-dom"],
+    "types": ["vite/client", "node", "vitest/globals", "@testing-library/jest-dom", "google.accounts"],
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "vite.config.ts"]

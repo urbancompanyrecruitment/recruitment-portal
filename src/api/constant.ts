@@ -1,6 +1,5 @@
 export const QUERY_KEY = {
-  candidates: (geography?: string) => ['candidates', geography ?? 'all'],
-  candidate: (id: string) => ['candidate', id],
+  candidates: ['candidates'],
   registration: (id: string) => ['registration', id],
   slots: ['slots'],
   bookableSlots: (geography: string) => ['slots', 'bookable', geography],
@@ -12,9 +11,21 @@ export const QUERY_KEY = {
   availableCandidates: ['available-candidates'],
   myReservations: (recruiterId: string) => ['my-reservations', recruiterId],
   candidateProfile: (candidateId: string, recruiterId: string) => ['candidate-profile', candidateId, recruiterId],
+  currentUser: ['current-user'],
 } as const;
 
 export const NON_DIGITS = /\D/g;
+
+export const TOKEN_COOKIE = 'token';
+
+export const TOKEN_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+
+export const HTTP_UNAUTHORIZED = 401;
+
+export const AUTH_ENDPOINT = {
+  googleLogin: '/auth/google/login',
+  currentUser: 'user/me',
+};
 
 export const API_ERROR = {
   candidateNotFound: 'Candidate not found.',
@@ -25,8 +36,6 @@ export const API_ERROR = {
   reservationNotFound: 'This profile is not reserved for you. It may have expired.',
   duplicatePhone: 'This WhatsApp number is already registered.',
   slotUnavailable: 'That slot is now full or unavailable. Choose another slot.',
-  stageLocked: 'Earlier stages must be passed before recording this result.',
-  verificationLocked: 'All three stages must be passed before confirming UC Verified.',
   profileUnavailable: 'This profile is unavailable.',
   reservedByOther: 'This profile is reserved by another recruiter.',
   reservationExpired: 'Reservation expired. Select an available profile.',
@@ -36,4 +45,6 @@ export const API_ERROR = {
   duplicateSession: 'This trainer already has a session at that date and time.',
   invalidCredentials: 'Check your login ID and password.',
   invalidQuota: 'Quota cannot be negative.',
+  sessionExpired: 'Your session has expired. Sign in again.',
+  requestFailed: 'The request failed. Try again.',
 };

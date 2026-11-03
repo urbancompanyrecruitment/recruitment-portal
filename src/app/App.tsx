@@ -7,7 +7,6 @@ import { THEME } from '@/theme/constant';
 import { PortalDirectory } from './PortalDirectory';
 
 const PartnerPortal = lazy(() => import('@/portals/partner'));
-const TrainerPortal = lazy(() => import('@/portals/trainer'));
 const RecruiterPortal = lazy(() => import('@/portals/recruiter'));
 const BusinessPortal = lazy(() => import('@/portals/business'));
 
@@ -23,7 +22,6 @@ export const App = () => (
               <Routes>
                 <Route path="/" element={<PortalDirectory />} />
                 <Route path="/partner/*" element={<PartnerPortal />} />
-                <Route path="/trainer/*" element={<TrainerPortal />} />
                 <Route path="/recruiter/*" element={<RecruiterPortal />} />
                 <Route path="/business/*" element={<BusinessPortal />} />
               </Routes>

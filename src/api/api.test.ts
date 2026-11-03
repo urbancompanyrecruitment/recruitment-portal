@@ -1,24 +1,8 @@
 import dayjs from 'dayjs';
-import {
-  AssessmentStage,
-  CookingFrequency,
-  Geography,
-  RecruitmentSource,
-  ReservationEventType,
-  StageResult,
-  UserRole,
-  YesNo,
-} from '@/domain/interface';
+import { CookingFrequency, Geography, RecruitmentSource, ReservationEventType, YesNo } from '@/domain/interface';
 import { readDb } from '@/mocks/db';
-import { signIn } from './auth';
-import {
-  addCandidateNote,
-  confirmCandidateVerified,
-  getRegistration,
-  listCandidates,
-  recordStageResult,
-  registerCandidate,
-} from './candidates';
+import { signInRecruiter } from './auth';
+import { getRegistration, listCandidates, markL1Completed, registerCandidate } from './candidates';
 import { API_ERROR } from './constant';
 import { RegistrationInput } from './interface';
 import { createRecruiter, toggleRecruiterAccess, updateAggregatorQuota } from './people';
@@ -68,37 +52,22 @@ describe('candidates api', () => {
   it('rejects a slot that is full', async () => {
     await registerCandidate({ ...registration, slotId: 's7' });
 
-    await expect(
-      registerCandidate({ ...registration, phone: '+65 9999 5678', slotId: 's7' }),
-    ).rejects.toThrow(API_ERROR.slotUnavailable);
-  });
-
-  it('scopes candidate lists by interview geography', async () => {
-    const myanmar = await listCandidates(Geography.Myanmar);
-
-    expect(myanmar.every(candidate => candidate.interviewGeography === Geography.Myanmar)).toBe(true);
-    expect(myanmar.map(candidate => candidate.name)).toContain('May Thu');
-  });
-
-  it('enforces stage order and verification gate', async () => {
-    await expect(recordStageResult('c12', AssessmentStage.L2, StageResult.Passed, 'Sarah Tan')).rejects.toThrow(
-      API_ERROR.stageLocked,
+    await expect(registerCandidate({ ...registration, phone: '+65 9999 5678', slotId: 's7' })).rejects.toThrow(
+      API_ERROR.slotUnavailable,
     );
-    await expect(confirmCandidateVerified('c11', 'Sarah Tan')).rejects.toThrow(API_ERROR.verificationLocked);
-
-    await recordStageResult('c11', AssessmentStage.L3, StageResult.Passed, 'Sarah Tan');
-    const verified = await confirmCandidateVerified('c11', 'Sarah Tan');
-
-    expect(verified).toMatchObject({ verified: true, verifiedBy: 'Sarah Tan' });
   });
 
-  it('keeps previous notes when adding a new one', async () => {
-    const updated = await addCandidateNote('c1', 'Follow up on availability', 'Sarah Tan');
+  it('lists every seeded candidate for the business team', async () => {
+    const candidates = await listCandidates();
 
-    expect(updated.notes.map(note => note.text)).toEqual([
-      'Strong practical test. Very thorough with kitchen surfaces.',
-      'Follow up on availability',
-    ]);
+    expect(candidates).toHaveLength(15);
+    expect(candidates.map(candidate => candidate.name)).toContain('May Thu');
+  });
+
+  it('marks the online L1 test as completed', async () => {
+    const updated = await markL1Completed('c12');
+
+    expect(updated).toMatchObject({ l1Completed: true, invitationStatus: 'Completed' });
   });
 });
 
@@ -151,7 +120,11 @@ describe('reservations api', () => {
   });
 
   it('lets the business team update the hub on a placement', async () => {
-    const updated = await updateHub('c2', { hub: 'Jurong East · West cluster', startDate: inDays(12), hubInstructions: 'Stay in the West cluster.' });
+    const updated = await updateHub('c2', {
+      hub: 'Jurong East · West cluster',
+      startDate: inDays(12),
+      hubInstructions: 'Stay in the West cluster.',
+    });
 
     expect(updated).toMatchObject({ hub: 'Jurong East · West cluster', recruiterId: 'r-a' });
   });
@@ -187,20 +160,23 @@ describe('slots and people api', () => {
     expect((await listBookableSlotsFor(Geography.Singapore)).map(slot => slot.id)).not.toContain('s1');
   });
 
+  it('signs recruiters in with the demo password and trims the login id', async () => {
+    const user = await signInRecruiter(' recruiter.a ', 'Demo123!');
+
+    expect(user).toMatchObject({ id: 'r-a', name: 'Alex Morgan', subtitle: 'BrightPath Recruitment' });
+    await expect(signInRecruiter('recruiter.a', 'wrong')).rejects.toThrow(API_ERROR.invalidCredentials);
+  });
+
   it('blocks suspended recruiters from signing in', async () => {
     await toggleRecruiterAccess('r-b');
 
-    await expect(signIn(UserRole.Recruiter, 'recruiter.b', 'Demo123!')).rejects.toThrow(API_ERROR.invalidCredentials);
-    expect(await signIn(UserRole.Recruiter, 'recruiter.a', 'Demo123!')).toMatchObject({ id: 'r-a', role: UserRole.Recruiter });
-  });
-
-  it('signs a trainer in with their geography', async () => {
-    expect(await signIn(UserRole.Trainer, ' trainer.mm ', 'Demo123!')).toMatchObject({ geography: Geography.Myanmar });
-    await expect(signIn(UserRole.Trainer, 'recruiter.a', 'Demo123!')).rejects.toThrow(API_ERROR.invalidCredentials);
+    await expect(signInRecruiter('recruiter.b', 'Demo123!')).rejects.toThrow(API_ERROR.invalidCredentials);
   });
 
   it('rejects duplicate recruiter logins and negative quotas', async () => {
-    await expect(createRecruiter({ name: 'X', company: 'Y', loginId: 'recruiter.a' })).rejects.toThrow(API_ERROR.duplicateLogin);
+    await expect(createRecruiter({ name: 'X', company: 'Y', loginId: 'recruiter.a' })).rejects.toThrow(
+      API_ERROR.duplicateLogin,
+    );
     await expect(updateAggregatorQuota('ag-1', -1)).rejects.toThrow(API_ERROR.invalidQuota);
     expect(await updateAggregatorQuota('ag-1', 15)).toMatchObject({ quota: 15 });
   });

@@ -1,82 +1,103 @@
 # recruitment-portal
 
-Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal" / Onboarding SG Job Portal).
-One app, four role-based portals that share a domain model:
+Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal). A standalone web service, deployed on its own URL, with three role-based portals sharing a domain model:
 
-| Portal | Route | Who | Auth |
+| Portal | Route | Who | Login |
 |---|---|---|---|
-| Partner registration | `/partner` | Cleaners signing up | Public |
-| Trainer | `/trainer` | Trainers tagged to Singapore / Myanmar / Overseas | Login |
-| Recruiter | `/recruiter` | Approved external recruiters | Login |
-| Business | `/business` | UC business team (admin) | Login |
+| Partner registration | `/partner` | Cleaners signing up | None (public form) |
+| Recruiter | `/recruiter` | Approved external recruiters | Mocked (demo accounts) until the backend defines recruiter credentials |
+| Business | `/business` | UC business team | UC Google sign-in through `internal-dashboards`, like the ops/configs dashboards |
 
-**Status:** UI only. All data is mocked and persisted in the browser's `localStorage`, so actions in one portal show up in the others (partner signs up → trainer assesses → recruiter reserves → business assigns hub). No backend, no WhatsApp/Hireflix calls.
+The trainer flow (L1–L3 assessment, verification) is built separately and is not part of this app.
+
+## Status
+
+UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage`, so an action in one portal shows up in the others (partner signs up → business sees the signup → recruiter reserves a verified candidate → business assigns a hub). No WhatsApp/Hireflix call is made. The backend is a new service, still being designed; `src/api/*` is the seam where its endpoints plug in.
 
 ## Run
 
-Needs Node 20+ (arm64). On this machine the default `node` is x86, so prefix the PATH:
-
 ```bash
-export PATH=~/.nvm/versions/node/v24.22.1/bin:$PATH
-npm install
-npm run dev        # http://localhost:5173
+nvm use            # Node 20+
+npm ci
+npm run dev        # http://localhost:9009
 npm test           # vitest
-npm run build      # typecheck + production build
+npm run build      # typecheck + production build into dist/
+npm start          # serve dist/ the way the Docker image does (port 3005)
 ```
 
-Sample logins (password `Demo123!` for all): `trainer.sg`, `trainer.sg2`, `trainer.mm`, `trainer.overseas`, `recruiter.a`, `recruiter.b`, `business.admin`.
-The home page (`/`) links every portal and has a "Reset sample data" button.
+- Business portal: click **Sign in with Google** with your `urbancompany.com` / `urbanclap.com` account. Development mode talks to `dev-ops.urbanclap.com`.
+- Recruiter portal: `recruiter.a` or `recruiter.b`, password `Demo123!` (mock).
+- `/` lists the portals and has a "Reset sample data" button.
+
+Port 9009 is the port the ops dashboard uses locally, so it is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console.
 
 ## Stack
 
-Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Router 7 · TanStack Query 5 · dayjs · Vitest + Testing Library.
+Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Router 7 · TanStack Query 5 · dayjs · Vitest + Testing Library · express (production static server only).
 
 ## Structure
 
 ```
+environment/      per-mode config (development / staging / production): sherlock + gateway URLs, Google client id
+server.js         express static server used by the Docker image (serves dist/, SPA fallback, /healthcheck)
 src/
-  app/            App shell: providers, router (each portal lazy-loaded), portal directory page
-  domain/         Pure business rules + shared types — no React, no I/O
-    interface.ts    Candidate, InterviewSlot, Reservation, enums (Geography, StageResult, …)
-    constant.ts     Stage labels, option lists, reservation window, hub notice window, …
-    assessment.ts   L1 → L2 → L3 gating, reset-on-change, verification gate
-    reservation.ts  Expiry, time-left, "joining within 2 weeks"
-    slot.ts         Bookable slots, booking counts, slot labels
-    funnel.ts       Weekly channel funnel + pass rates
-  api/            The only layer the UI calls. One file per resource; today backed by mocks/
-    candidates.ts  slots.ts  people.ts  reservations.ts  auth.ts  hooks.ts (shared useQuery hooks)
-  mocks/          Seed data + localStorage "database" (delete when the backend lands)
-  shared/         Cross-portal UI: PortalShell (sidebar layout), StaffLogin, PageHeader, StatTile,
-                  Notice, status tags, auth context + RequireRole guard, useAppMutation, CSV export
-  portals/
-    partner/      Registration form + slot picker, post-registration confirmation
-    trainer/      Candidate list/filters/CSV, schedule, candidate assessment + notes + verification
-    recruiter/    Dashboard, available profiles, reserve/contact/placement, my candidates, hub notifications
-    business/     Overview + funnel, trainers & calendars, recruiter access + access log, placements/quotas/hubs
+  config/         picks environment/<mode>.json from import.meta.env.MODE
+  domain/         pure business rules + shared types, no React or I/O
+  api/            the only layer the UI calls: one file per resource
+                  auth.ts (real Google login + mocked recruiter login), http.ts (bearer token, envelope, 401)
+                  everything else is backed by mocks/ today
+  mocks/          seed data + localStorage "database" (delete when the backend lands)
+  shared/         auth context + RequireRole guard, PortalShell, LoginShell, GoogleSignIn, tags/tiles, CSV export
+  portals/        partner/  recruiter/  business/
   theme/          antd theme tokens + global CSS
-  test/           Test setup, render helper, session fixtures
+  test/           setup, render helper, fetch stub, session fixtures
 ```
 
 Each folder keeps its types in `interface.ts` and its constants in `constant.ts`.
 
+## Authentication
+
+Business-team login follows the pattern every UC dashboard uses (`dashboard-operations`, `dashboard-configs`):
+
+1. Google Identity Services renders the button (`GoogleSignIn`) with the UC client id from `environment/*.json` and returns an **ID token**.
+2. `signInWithGoogle` calls `PUT {sherlockServerUrl}/auth/google/login` with `{ email, access_token: <id token> }`. `internal-dashboards` verifies it with Google, only accepts `urbanclap.com` / `urbancompany.com` accounts, upserts the dashboard user and returns a JWT.
+3. The JWT is stored in the `token` cookie (one year, same cookie name as the other dashboards). `api/http.ts` sends it as `Authorization: Bearer …` on every call and turns a 401 into a sign-out.
+4. `GET {sherlockApiUrl}user/me` returns the user's name, email and `team` (access names from `access-control-service`). `RequireRole` restores the session from the cookie on reload.
+5. `REQUIRED_BUSINESS_ACCESSES` in `src/shared/auth/constant.ts` is empty, so any UC account can enter for now. Once the access name for this dashboard exists in access-control, add it there and users without it get the "no access" screen.
+
+The new backend should accept the same bearer token for business-portal calls (verify it the way `internal-dashboards` does, or route through the dashboard gateway, which forwards it).
+
+**Recruiters** are external users: the Google flow rejects non-UC domains and the email/password strategy in `internal-dashboards` is disabled outside development. Their credential system belongs to the new backend; until then `signInRecruiter` is a mock against the seed data.
+
+**Partners** are the public; the registration form needs no login.
+
+## Hosting
+
+The live React dashboards are built into static files, served by a small express server inside a Docker image, registered as a platform service (for example `dashboard-ops-web-service`, discovery port 3003) and deployed by `platform-orchestration-service` to ECS behind a load balancer and DNS name. This repo follows that shape:
+
+- `Dockerfile`: multi-stage, `npm run build -- --mode $BUILD_MODE` then `node server.js` on port 3005 (`PORT` overrides). The runtime stage installs only `dependencies` (express); UI libraries are `devDependencies` because Vite bundles them.
+- `.gitlab-ci.yml`: platform template plus install/typecheck/test/build on merge requests and master.
+- `environment/<mode>.json`: which `internal-dashboards` and gateway the build talks to.
+
+To get the URL live, the platform team needs to: register a service id (for example `recruitment-portal-web-service`) with the `initiate-service` templates in `platform-orchestration-service` and a Jenkins job; create the load balancer, DNS record and TLS certificate and add that origin to the UC Google OAuth client; and mirror `node:20` into the internal ECR registry (CI images there are pinned at Node 14; Vite 8 needs Node 20+).
+
+If the public partner form should not live on the internal dashboard domain, split it into a second Vite entry later; it is already its own lazy chunk under `src/portals/partner`.
+
 ## Plugging in the backend
 
-Components never touch `mocks/`. They call functions in `src/api/*` (directly or through TanStack Query), and those functions currently wrap `mockQuery` / `mockMutation`. To go live:
+Components never touch `mocks/`. They call `src/api/*` (directly or through TanStack Query), and those functions currently wrap `mockQuery` / `mockMutation`. To go live:
 
-1. Replace the body of each `src/api/*.ts` function with an HTTP call (keep the signature), e.g. `listAvailableCandidates = () => http.get<AvailableCandidate[]>('/recruiter/candidates')`.
-2. Move the rules in `src/domain/` that must be authoritative (stage gating, verification gate, reservation exclusivity/expiry, slot capacity) to the service. Keep the client copies only for UI hints such as disabling buttons.
-3. Replace `api/auth.ts` + `shared/auth` session storage with the real login (recruiter/trainer accounts issued by the business team) and send the token on every request.
-4. Delete `src/mocks/`.
+1. Replace each `src/api/*.ts` function body with a `request(...)` call from `api/http.ts` (keep the signature).
+2. Move the rules in `src/domain/` that must be authoritative (reservation exclusivity and expiry, slot capacity) to the backend. Keep the client copies only for UI hints.
+3. Delete `src/mocks/` and the recruiter demo accounts.
 
-Things the backend must own (not just the UI):
-- Recruiter access to contact details and reservation exclusivity, including direct links. The mock strips `phone` from the available list, but real enforcement has to be server-side, with rate limits and access logging (PRD §3, "Access protection").
-- Reservation expiry (a scheduled job, not the client's clock).
-- Hireflix / WhatsApp invite on registration.
+Things the backend must own: recruiter access to contact details and reservation exclusivity (including direct links, rate limits and access logging), reservation expiry (a scheduled job, not the client's clock), and the Hireflix / WhatsApp invite on registration.
 
 ## Open questions from the PRD
 
+- Recruiter credentials for external users (see Authentication).
 - Reservation window length and extension rules (mock uses 48h).
 - Hub allocation logic (mock: business sets it manually).
 - Aggregator quota rules (mock: each assignment uses one place).
 - Final consent wording (legal).
-- Whether the public partner form and the staff portals ship as one deployment or two. Each portal is its own lazy chunk under `src/portals/`, so splitting later means adding a second Vite entry, not moving code.
+- Whether the public partner form and the staff portals ship on one domain.

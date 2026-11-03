@@ -1,11 +1,12 @@
 import { ASSIGNABLE_CATEGORIES } from '@/domain/constant';
 import { ReservationStatus } from '@/domain/interface';
-import { DemoAccount, NavItem } from '@/shared/components/interface';
+import { NavItem } from '@/shared/components/interface';
 import {
   CandidateTab,
   CandidateTabConfig,
   DashboardMetric,
   DashboardStat,
+  DemoAccount,
   ProfileComparator,
   ProfileFilters,
   ProfileSort,
@@ -35,6 +36,14 @@ export const RECRUITER_DEMO_ACCOUNTS: DemoAccount[] = [
   { label: 'Recruiter A · Alex Morgan', loginId: 'recruiter.a' },
   { label: 'Recruiter B · Jamie Lee', loginId: 'recruiter.b' },
 ];
+
+export const RECRUITER_LOGIN = {
+  title: 'Welcome back',
+  subtitle: 'Sign in to your recruitment workspace. Accounts are issued by the business team.',
+  demoHeading: 'Explore with a sample account',
+  demoPasswordNote: 'Password for all sample accounts:',
+  mockNote: 'Recruiter sign-in is mocked in this build. Credentials for external recruiters will come from the backend.',
+};
 
 export const HERO_SKILL_TAGS = ['English', 'Practical skills', 'Customer understanding'];
 

@@ -1,9 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
+import { AUTH_ENDPOINT, TOKEN_COOKIE } from '@/api/constant';
+import { environment } from '@/config';
 import { UserRole } from '@/domain/interface';
+import { readCookie, writeCookie } from '@/shared/utils/cookie';
+import { BUSINESS_SESSION, BUSINESS_TOKEN, DASHBOARD_USER_RESPONSE } from '@/test/constant';
 import { renderWithProviders } from '@/test/renderWithProviders';
-import { BUSINESS_SESSION } from '@/test/constant';
+import { stubFetch } from '@/test/stubFetch';
+import { BUSINESS_LOGIN } from './constant';
 import BusinessPortal from './index';
 
 const renderPortal = (route: string, signedIn = true) =>
@@ -15,11 +20,34 @@ const renderPortal = (route: string, signedIn = true) =>
   );
 
 describe('Business portal', () => {
-  it('redirects to the business sign-in page without a session', async () => {
+  it('shows the Google sign-in page without a session', async () => {
     renderPortal('/business/overview', false);
 
-    expect(await screen.findByText('Business team sign in')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Business admin' })).toBeInTheDocument();
+    expect(await screen.findByText(BUSINESS_LOGIN.title)).toBeInTheDocument();
+    expect(screen.getByText(BUSINESS_LOGIN.note)).toBeInTheDocument();
+  });
+
+  it('restores the business session from the dashboard token cookie', async () => {
+    writeCookie(TOKEN_COOKIE, BUSINESS_TOKEN, 60);
+    const fetchMock = stubFetch([{ body: { isError: false, success: { data: DASHBOARD_USER_RESPONSE } } }]);
+
+    renderPortal('/business/overview', false);
+
+    expect(await screen.findByRole('heading', { name: 'Business overview' })).toBeInTheDocument();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${environment.sherlockApiUrl}${AUTH_ENDPOINT.currentUser}`);
+    expect(init.headers.Authorization).toBe(`Bearer ${BUSINESS_TOKEN}`);
+    expect(screen.getByText(DASHBOARD_USER_RESPONSE.email)).toBeInTheDocument();
+  });
+
+  it('clears an expired token and returns to sign-in', async () => {
+    writeCookie(TOKEN_COOKIE, 'stale-token', 60);
+    stubFetch([{ status: 401, body: { isError: true } }]);
+
+    renderPortal('/business/overview', false);
+
+    expect(await screen.findByText(BUSINESS_LOGIN.title)).toBeInTheDocument();
+    expect(readCookie(TOKEN_COOKIE)).toBeUndefined();
   });
 
   it('shows total signups and lists seeded candidates in the tracker', async () => {

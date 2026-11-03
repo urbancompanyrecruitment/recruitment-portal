@@ -14,11 +14,6 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
-beforeEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
-});
-
 Object.defineProperty(window, 'ResizeObserver', {
   writable: true,
   value: class {
@@ -26,4 +21,20 @@ Object.defineProperty(window, 'ResizeObserver', {
     unobserve() {}
     disconnect() {}
   },
+});
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+  document.cookie
+    .split(';')
+    .map(entry => entry.split('=')[0].trim())
+    .filter(Boolean)
+    .forEach(name => {
+      document.cookie = `${name}=; path=/; max-age=0`;
+    });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

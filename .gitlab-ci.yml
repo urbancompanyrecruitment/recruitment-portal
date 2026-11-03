@@ -1,0 +1,34 @@
+default:
+  interruptible: true
+
+image: node:20
+
+stages:
+  - install
+  - test
+
+include:
+  project: urbanclap/platform-orchestration-service
+  file: templates/gitlab-ci/platform-template.gitlab-ci.yml
+
+install:
+  stage: install
+  script:
+    - npm ci
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+  only:
+    - merge_requests
+    - master
+
+verify:
+  stage: test
+  script:
+    - npm run typecheck
+    - npm test
+    - npm run build
+  only:
+    - merge_requests
+    - master

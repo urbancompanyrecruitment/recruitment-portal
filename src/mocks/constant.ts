@@ -6,8 +6,6 @@ export const MOCK_LATENCY_MS = 120;
 
 export const DEMO_PASSWORD = 'Demo123!';
 
-export const BUSINESS_ACCOUNT = { id: 'business-admin', name: 'Business team', loginId: 'business.admin', subtitle: 'Admin' };
-
 export const MAX_RESERVATION_EVENTS = 200;
 
 export const HOUR_MS = 60 * 60 * 1000;

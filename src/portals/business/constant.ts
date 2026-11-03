@@ -1,7 +1,6 @@
 import { FUNNEL_WEEK_DAYS } from '@/domain/constant';
 import { AssessmentStage, InvitationStatus, ReservationEventType, StageResult } from '@/domain/interface';
-import { BUSINESS_ACCOUNT } from '@/mocks/constant';
-import { DemoAccount, NavItem } from '@/shared/components/interface';
+import { NavItem } from '@/shared/components/interface';
 import { EventTagStyle, OverviewMetric } from './interface';
 
 export const BUSINESS_BASE_PATH = '/business';
@@ -27,10 +26,9 @@ export const BUSINESS_NAV_ITEMS: NavItem[] = [
 
 export const BUSINESS_LOGIN = {
   title: 'Business team sign in',
-  subtitle: 'Track recruitment performance, publish trainer calendars and manage recruiter access.',
+  subtitle: 'Sign in with your Urban Company Google account to track recruitment, publish trainer calendars and manage recruiter access.',
+  note: 'Access is granted by the business team through the UC access-control dashboard. Only urbancompany.com and urbanclap.com accounts can sign in.',
 };
-
-export const BUSINESS_DEMO_ACCOUNTS: DemoAccount[] = [{ label: 'Business admin', loginId: BUSINESS_ACCOUNT.loginId }];
 
 export const SIDEBAR_FOOTER = {
   note: 'Mock data only — changes are stored in this browser.',

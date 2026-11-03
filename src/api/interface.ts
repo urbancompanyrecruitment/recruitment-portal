@@ -8,6 +8,35 @@ import {
   YesNo,
 } from '@/domain/interface';
 
+export interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: unknown;
+}
+
+export interface ApiEnvelope<T> {
+  isError?: boolean;
+  success?: { data: T };
+  error?: { message?: string };
+  message?: string;
+}
+
+export interface GoogleIdTokenPayload {
+  email: string;
+}
+
+export interface GoogleLoginResponse {
+  token: string;
+}
+
+export interface DashboardUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: string[];
+  team: string[];
+  is_active?: boolean;
+}
+
 export interface RegistrationInput {
   name: string;
   phone: string;

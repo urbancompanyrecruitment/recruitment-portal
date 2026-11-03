@@ -2,16 +2,14 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { UserRole } from '@/domain/interface';
 import { RequireRole } from '@/shared/auth/AuthProvider';
 import { PortalShell } from '@/shared/components/PortalShell';
-import { StaffLogin } from '@/shared/components/StaffLogin';
 import {
-  BUSINESS_DEMO_ACCOUNTS,
   BUSINESS_HOME_PATH,
-  BUSINESS_LOGIN,
   BUSINESS_NAV_ITEMS,
   BUSINESS_ROUTE,
   BUSINESS_WORKSPACE,
   SIDEBAR_FOOTER,
 } from './constant';
+import { LoginPage } from './pages/LoginPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { PlacementsPage } from './pages/PlacementsPage';
 import { RecruitersPage } from './pages/RecruitersPage';
@@ -20,17 +18,7 @@ import './business.css';
 
 const BusinessPortal = () => (
   <Routes>
-    <Route
-      path={BUSINESS_ROUTE.login}
-      element={
-        <StaffLogin
-          role={UserRole.Business}
-          title={BUSINESS_LOGIN.title}
-          subtitle={BUSINESS_LOGIN.subtitle}
-          demoAccounts={BUSINESS_DEMO_ACCOUNTS}
-        />
-      }
-    />
+    <Route path={BUSINESS_ROUTE.login} element={<LoginPage />} />
     <Route
       element={
         <RequireRole role={UserRole.Business}>

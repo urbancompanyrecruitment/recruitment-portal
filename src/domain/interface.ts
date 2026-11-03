@@ -54,7 +54,6 @@ export enum InvitationStatus {
 }
 
 export enum UserRole {
-  Trainer = 'trainer',
   Recruiter = 'recruiter',
   Business = 'business',
 }
@@ -194,5 +193,5 @@ export interface SessionUser {
   name: string;
   role: UserRole;
   subtitle: string;
-  geography?: Geography;
+  accesses: string[];
 }

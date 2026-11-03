@@ -55,3 +55,13 @@ export interface PlacementFormValues {
 export interface HubStatusTagProps {
   hub?: string;
 }
+
+export interface DemoAccount {
+  label: string;
+  loginId: string;
+}
+
+export interface LoginFormValues {
+  loginId: string;
+  password: string;
+}

@@ -17,7 +17,7 @@ export const PortalDirectory = () => {
       </div>
       <Typography.Title level={1}>Recruitment & onboarding portals</Typography.Title>
       <Typography.Paragraph type="secondary">
-        Four role-based portals sharing one mock dataset. Changes made in one portal show up in the others.
+        Three role-based portals sharing one mock dataset. Changes made in one portal show up in the others.
       </Typography.Paragraph>
       <Notice tone="warning">
         Mock data only — stored in this browser&apos;s localStorage. No messages are sent and no backend is called.
