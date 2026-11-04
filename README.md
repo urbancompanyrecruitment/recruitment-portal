@@ -1,18 +1,27 @@
 # recruitment-portal
 
-Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal). A standalone web service, deployed on its own URL, with three role-based portals sharing a domain model:
+Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web service, deployed on its own URL, with three role-based areas sharing a domain model:
 
-| Portal | Route | Who | Login |
+| Area | Route | Who | Login |
 |---|---|---|---|
-| Partner registration | `/partner` | Cleaners signing up | None (public form) |
+| Partner registration | `/partner` | Cleaners signing up | None — one public form and a thank-you screen, no status page |
 | Recruiter | `/recruiter` | Approved external recruiters | Mocked (demo accounts) until the backend defines recruiter credentials |
-| Business | `/business` | UC business team | UC Google sign-in through `internal-dashboards`, like the ops/configs dashboards |
+| Business (admin) | `/business` | UC business team | UC Google sign-in through `internal-dashboards`, like the ops/configs dashboards |
 
-The trainer flow (L1–L3 assessment, verification) is built separately and is not part of this app.
+The trainer flow is built separately and is not part of this app.
+
+## The flow this UI implements
+
+1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). They pick an interview slot and see a thank-you screen; the business team contacts them from there.
+2. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), a lead is created in `provider-onboarding-service` and the partner enters the unapproved-partner journey. Mocked here as `candidate.onboarding.leadId`.
+3. **Export.** Admins download signed-up partners as CSV: `Name, Location, Primary mobile`.
+4. **Verified upload.** Admins upload a CSV of verified partners (`primary_mobile` column). Only partners with a valid Singapore number on file are verified and approved; every other row is listed with a reason and available as a fail CSV.
+5. **Lock.** A recruiter locks a verified partner. The lock record carries `lockedAt`, `lockedBy` (`recruiterId`), `lockReleaseAt` and `state` (`active` / `inactive`). A lock stops counting the moment its release time passes; the daily cleanup (mocked by the "Run daily lock cleanup" button) marks it inactive.
+6. **Placement.** The lock owner records aggregator and start date; the business team assigns the hub later.
 
 ## Status
 
-UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage`, so an action in one portal shows up in the others (partner signs up → business sees the signup → recruiter reserves a verified candidate → business assigns a hub). No WhatsApp/Hireflix call is made. The backend is a new service, still being designed; `src/api/*` is the seam where its endpoints plug in.
+UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage` (key `recruitment-portal-mock-db-v2`), so an action in one area shows up in the others. No WhatsApp/Hireflix call and no real `provider-onboarding-service` call is made. The backend is a new service, still being designed; `src/api/*` is the seam where its endpoints plug in.
 
 ## Run
 
@@ -25,9 +34,9 @@ npm run build      # typecheck + production build into dist/
 npm start          # serve dist/ the way the Docker image does (port 3005)
 ```
 
-- Business portal: click **Sign in with Google** with your `urbancompany.com` / `urbanclap.com` account. Development mode talks to `dev-ops.urbanclap.com`.
-- Recruiter portal: `recruiter.a` or `recruiter.b`, password `Demo123!` (mock).
-- `/` lists the portals and has a "Reset sample data" button.
+- Business area: click **Sign in with Google** with your `urbancompany.com` / `urbanclap.com` account. Development mode talks to `dev-ops.urbanclap.com`.
+- Recruiter area: `recruiter.a` or `recruiter.b`, password `Demo123!` (mock).
+- `/` lists the areas and has a "Reset sample data" button.
 
 Port 9009 is the port the ops dashboard uses locally, so it is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console.
 
@@ -43,11 +52,12 @@ server.js         express static server used by the Docker image (serves dist/, 
 src/
   config/         picks environment/<mode>.json from import.meta.env.MODE
   domain/         pure business rules + shared types, no React or I/O
+                  phone.ts (Singapore number rules), reservation.ts (lock state), funnel.ts, slot.ts
   api/            the only layer the UI calls: one file per resource
                   auth.ts (real Google login + mocked recruiter login), http.ts (bearer token, envelope, 401)
-                  everything else is backed by mocks/ today
+                  candidates.ts (sign-up, Singapore number, verified import), reservations.ts (locks, placements, cleanup)
   mocks/          seed data + localStorage "database" (delete when the backend lands)
-  shared/         auth context + RequireRole guard, PortalShell, LoginShell, GoogleSignIn, tags/tiles, CSV export
+  shared/         auth context + RequireRole guard, PortalShell, LoginShell, GoogleSignIn, tags/tiles, CSV helpers
   portals/        partner/  recruiter/  business/
   theme/          antd theme tokens + global CSS
   test/           setup, render helper, fetch stub, session fixtures
@@ -65,39 +75,35 @@ Business-team login follows the pattern every UC dashboard uses (`dashboard-oper
 4. `GET {sherlockApiUrl}user/me` returns the user's name, email and `team` (access names from `access-control-service`). `RequireRole` restores the session from the cookie on reload.
 5. `REQUIRED_BUSINESS_ACCESSES` in `src/shared/auth/constant.ts` is empty, so any UC account can enter for now. Once the access name for this dashboard exists in access-control, add it there and users without it get the "no access" screen.
 
-The new backend should accept the same bearer token for business-portal calls (verify it the way `internal-dashboards` does, or route through the dashboard gateway, which forwards it).
-
 **Recruiters** are external users: the Google flow rejects non-UC domains and the email/password strategy in `internal-dashboards` is disabled outside development. Their credential system belongs to the new backend; until then `signInRecruiter` is a mock against the seed data.
 
-**Partners** are the public; the registration form needs no login.
+**Partners** are the public; the registration form needs no login and there is nothing for a partner to come back to.
 
 ## Hosting
 
-The live React dashboards are built into static files, served by a small express server inside a Docker image, registered as a platform service (for example `dashboard-ops-web-service`, discovery port 3003) and deployed by `platform-orchestration-service` to ECS behind a load balancer and DNS name. This repo follows that shape:
+The live React dashboards are built into static files, served by a small express server inside a Docker image, registered as a platform service and deployed by `platform-orchestration-service` to ECS behind a load balancer and DNS name. This repo follows that shape:
 
 - `Dockerfile`: multi-stage, `npm run build -- --mode $BUILD_MODE` then `node server.js` on port 3005 (`PORT` overrides). The runtime stage installs only `dependencies` (express); UI libraries are `devDependencies` because Vite bundles them.
 - `.gitlab-ci.yml`: platform template plus install/typecheck/test/build on merge requests and master.
 - `environment/<mode>.json`: which `internal-dashboards` and gateway the build talks to.
 
-To get the URL live, the platform team needs to: register a service id (for example `recruitment-portal-web-service`) with the `initiate-service` templates in `platform-orchestration-service` and a Jenkins job; create the load balancer, DNS record and TLS certificate and add that origin to the UC Google OAuth client; and mirror `node:20` into the internal ECR registry (CI images there are pinned at Node 14; Vite 8 needs Node 20+).
-
-If the public partner form should not live on the internal dashboard domain, split it into a second Vite entry later; it is already its own lazy chunk under `src/portals/partner`.
+To get the URL live, the platform team needs to: register a service id with the `initiate-service` templates in `platform-orchestration-service` and a Jenkins job; create the load balancer, DNS record and TLS certificate and add that origin to the UC Google OAuth client; and mirror `node:20` into the internal ECR registry (CI images there are pinned at Node 14; Vite 8 needs Node 20+).
 
 ## Plugging in the backend
 
 Components never touch `mocks/`. They call `src/api/*` (directly or through TanStack Query), and those functions currently wrap `mockQuery` / `mockMutation`. To go live:
 
 1. Replace each `src/api/*.ts` function body with a `request(...)` call from `api/http.ts` (keep the signature).
-2. Move the rules in `src/domain/` that must be authoritative (reservation exclusivity and expiry, slot capacity) to the backend. Keep the client copies only for UI hints.
+2. Move the rules in `src/domain/` that must be authoritative (lock exclusivity and release time, slot capacity, Singapore-number validation) to the backend. Keep the client copies only for UI hints.
 3. Delete `src/mocks/` and the recruiter demo accounts.
 
-Things the backend must own: recruiter access to contact details and reservation exclusivity (including direct links, rate limits and access logging), reservation expiry (a scheduled job, not the client's clock), and the Hireflix / WhatsApp invite on registration.
+Things the backend must own: the `provider-onboarding-service` calls (`createLead` when a Singapore number first appears, `bulkApproveJourney` on verified upload), recruiter access to contact details and lock exclusivity (distributed lock, direct links, rate limits, access logging), the daily lock cleanup, and the fail CSV for verified uploads.
 
 ## Open questions from the PRD
 
 - Recruiter credentials for external users (see Authentication).
-- Reservation window length and extension rules (mock uses 48h).
-- Hub allocation logic (mock: business sets it manually).
-- Aggregator quota rules (mock: each assignment uses one place).
+- Lock window length (48h in the mock) and whether a recruiter can re-lock a partner they let expire.
+- Category, city and source values sent to `createLead`.
+- Whether offline-test failures should be recorded or only passes uploaded.
+- Whether "employer name" at placement is free text or a fixed aggregator list.
 - Final consent wording (legal).
-- Whether the public partner form and the staff portals ship on one domain.

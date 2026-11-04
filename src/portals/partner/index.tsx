@@ -1,7 +1,6 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { APP_NAME } from '@/domain/constant';
 import { PARTNER_ROUTE } from './constant';
-import { ConfirmationPage } from './pages/ConfirmationPage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import './partner.css';
 
@@ -17,7 +16,6 @@ const PartnerPortal = () => (
     <main className="portal-content partner-content">
       <Routes>
         <Route index element={<RegistrationPage />} />
-        <Route path="registration/:candidateId" element={<ConfirmationPage />} />
         <Route path="*" element={<Navigate to={PARTNER_ROUTE.registration} replace />} />
       </Routes>
     </main>

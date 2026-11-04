@@ -1,40 +1,67 @@
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Checkbox, Col, Form, Input, InputNumber, Radio, Row, Select, Spin, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  Descriptions,
+  Form,
+  Input,
+  InputNumber,
+  Radio,
+  Result,
+  Row,
+  Select,
+  Spin,
+  Typography,
+} from 'antd';
 import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { registerCandidate } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
+import { RegistrationResult } from '@/api/interface';
 import { listBookableSlotsFor } from '@/api/slots';
 import {
   COOKING_FREQUENCIES,
   COUNTRIES,
+  DAY_DATE_FORMAT,
   GEOGRAPHIES,
   MAX_PARTNER_AGE,
   MIN_PARTNER_AGE,
   PHONE_PATTERN,
   RECRUITMENT_SOURCES,
+  SINGAPORE_PHONE_PATTERN,
   SOURCES_REQUIRING_REFERRER,
   YES_NO,
 } from '@/domain/constant';
+import { isSingaporePhone } from '@/domain/phone';
 import { Notice, PageHeader } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import {
   CONSENT_PENDING_NOTE,
   CONSENT_TEXT,
-  PARTNER_ROUTE,
+  COPY_PRIMARY_LABEL,
+  PRIMARY_PHONE_ERROR,
+  PRIMARY_PHONE_HINT,
   REGISTRATION_SUCCESS_MESSAGE,
+  SINGAPORE_PHONE_ERROR,
+  SINGAPORE_PHONE_HINT,
   SLOT_DAY_FORMAT,
   SLOT_NOTICE,
+  THANK_YOU,
 } from '../constant';
 import { RegistrationFormValues } from '../interface';
 
 export const RegistrationPage = () => {
   const [form] = Form.useForm<RegistrationFormValues>();
-  const navigate = useNavigate();
+  const [registration, setRegistration] = useState<RegistrationResult>();
+  const [copyPrimary, setCopyPrimary] = useState(false);
   const geography = Form.useWatch('interviewGeography', form);
   const slotId = Form.useWatch('slotId', form);
   const source = Form.useWatch('source', form);
+  const primaryPhone = Form.useWatch('primaryPhone', form) ?? '';
   const slots = useQuery({
     queryKey: QUERY_KEY.bookableSlots(geography ?? ''),
     queryFn: () => listBookableSlotsFor(geography),
@@ -43,6 +70,57 @@ export const RegistrationPage = () => {
   const register = useAppMutation(registerCandidate, REGISTRATION_SUCCESS_MESSAGE);
   const selectedSlot = slots.data?.find(slot => slot.id === slotId);
   const referrerRequired = SOURCES_REQUIRING_REFERRER.includes(source);
+  const primaryIsSingapore = isSingaporePhone(primaryPhone);
+
+  if (registration) {
+    const { candidate, slot } = registration;
+
+    return (
+      <Card>
+        <Result
+          status="success"
+          title={THANK_YOU.title}
+          subTitle={THANK_YOU.subtitle}
+          extra={
+            <Button
+              onClick={() => {
+                setRegistration(undefined);
+                setCopyPrimary(false);
+                form.resetFields();
+              }}
+            >
+              {THANK_YOU.registerAnother}
+            </Button>
+          }
+        >
+          <Descriptions
+            column={1}
+            size="small"
+            items={[
+              { key: 'name', label: 'Name', children: candidate.name },
+              { key: 'primary', label: 'Primary mobile', children: candidate.primaryPhone },
+              ...(candidate.singaporePhone
+                ? [{ key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone }]
+                : []),
+              ...(slot
+                ? [
+                    { key: 'centre', label: 'Interview centre', children: slot.centre },
+                    { key: 'when', label: 'Day & time', children: `${dayjs(slot.date).format(DAY_DATE_FORMAT)} · ${slot.time} (${slot.timeZone})` },
+                    { key: 'address', label: 'Address', children: slot.address },
+                    { key: 'instructions', label: 'Instructions', children: slot.instructions },
+                  ]
+                : [{ key: 'no-slot', label: 'Interview', children: THANK_YOU.noSlot }]),
+            ]}
+          />
+          {candidate.onboarding && (
+            <Notice tone="success" style={{ marginTop: 20, marginBottom: 0 }}>
+              {THANK_YOU.onboardingNote}
+            </Notice>
+          )}
+        </Result>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -56,10 +134,10 @@ export const RegistrationPage = () => {
         scrollToFirstError
         onValuesChange={changed => {
           if ('interviewGeography' in changed) form.setFieldValue('slotId', undefined);
+
+          if ('primaryPhone' in changed && copyPrimary) form.setFieldValue('singaporePhone', changed.primaryPhone);
         }}
-        onFinish={values =>
-          register.mutate(values, { onSuccess: candidate => navigate(PARTNER_ROUTE.confirmation(candidate.id)) })
-        }
+        onFinish={values => register.mutate(values, { onSuccess: setRegistration })}
       >
         <Row gutter={[23, 23]}>
           <Col xs={24} lg={13}>
@@ -72,16 +150,38 @@ export const RegistrationPage = () => {
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    name="phone"
-                    label="WhatsApp number with country code"
-                    extra="Your L1 English interview link is sent here."
-                    rules={[
-                      { required: true },
-                      { pattern: PHONE_PATTERN, message: 'Use + and country code, e.g. +65 9123 4567' },
-                    ]}
+                    name="primaryPhone"
+                    label="Primary mobile number"
+                    extra={PRIMARY_PHONE_HINT}
+                    rules={[{ required: true }, { pattern: PHONE_PATTERN, message: PRIMARY_PHONE_ERROR }]}
                   >
-                    <Input type="tel" placeholder="+65 9123 4567" autoComplete="tel" />
+                    <Input type="tel" placeholder="+95 9123 4567" autoComplete="tel" />
                   </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="singaporePhone"
+                    label="Singapore mobile number (optional)"
+                    extra={SINGAPORE_PHONE_HINT}
+                    rules={[{ pattern: SINGAPORE_PHONE_PATTERN, message: SINGAPORE_PHONE_ERROR }]}
+                  >
+                    <Input type="tel" placeholder="+65 9123 4567" disabled={copyPrimary} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  {primaryIsSingapore && (
+                    <Form.Item label=" " colon={false}>
+                      <Checkbox
+                        checked={copyPrimary}
+                        onChange={event => {
+                          setCopyPrimary(event.target.checked);
+                          form.setFieldValue('singaporePhone', event.target.checked ? primaryPhone : '');
+                        }}
+                      >
+                        {COPY_PRIMARY_LABEL}
+                      </Checkbox>
+                    </Form.Item>
+                  )}
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="country" label="Current country" rules={[{ required: true }]}>
@@ -191,7 +291,7 @@ export const RegistrationPage = () => {
                 <Alert
                   type="info"
                   showIcon
-                  title="No slots are available right now. You can still register — new dates will be shared on WhatsApp."
+                  title="No slots are available right now. You can still register — the team will share new dates."
                   style={{ marginBottom: 20 }}
                 />
               )}
@@ -231,11 +331,7 @@ export const RegistrationPage = () => {
                   </Typography.Paragraph>
                 </div>
               )}
-              <Notice style={{ marginTop: 22 }}>{SLOT_NOTICE}</Notice>
-              <Typography.Paragraph type="secondary" className="small" style={{ marginBottom: 0 }}>
-                You can complete L1 at home or at the training centre. Overseas arrangements follow the
-                location-specific instructions.
-              </Typography.Paragraph>
+              <Notice style={{ marginTop: 22, marginBottom: 0 }}>{SLOT_NOTICE}</Notice>
             </Card>
           </Col>
         </Row>

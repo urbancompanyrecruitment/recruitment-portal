@@ -1,5 +1,5 @@
 import { FUNNEL_WEEK_DAYS } from '@/domain/constant';
-import { AssessmentStage, InvitationStatus, ReservationEventType, StageResult } from '@/domain/interface';
+import { ImportRowOutcome, InactiveReason, LockState, ReservationEventType } from '@/domain/interface';
 import { NavItem } from '@/shared/components/interface';
 import { EventTagStyle, OverviewMetric } from './interface';
 
@@ -21,7 +21,7 @@ export const BUSINESS_NAV_ITEMS: NavItem[] = [
   { path: BUSINESS_HOME_PATH, label: 'Overview' },
   { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.trainers}`, label: 'Trainers & calendars' },
   { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.recruiters}`, label: 'Recruiter access' },
-  { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.placements}`, label: 'Placements & hubs' },
+  { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.placements}`, label: 'Locks, placements & hubs' },
 ];
 
 export const BUSINESS_LOGIN = {
@@ -44,6 +44,9 @@ export const BUSINESS_MESSAGE = {
   recruiterAccessUpdated: 'Recruiter access updated.',
   hubSaved: 'Hub and joining date saved to the assigned recruiter profile.',
   quotaSaved: 'Aggregator quota saved.',
+  singaporePhoneSaved: 'Singapore number saved.',
+  importCompleted: 'Verified list processed.',
+  locksDeactivated: 'Lock cleanup finished.',
 };
 
 export const EMPTY_VALUE = '—';
@@ -62,29 +65,55 @@ export const FUNNEL_DEFAULT_OFFSET_DAYS = FUNNEL_WEEK_DAYS - 1;
 
 export const FUNNEL_BAR_HEIGHT = 12;
 
-export const TRACKER_CSV_FILE_NAME = 'business-tracker.csv';
+export const SIGNUP_EXPORT_FILE_NAME = 'signed-up-partners.csv';
 
-export const TRACKER_CSV_HEADERS = [
-  'Name',
-  'Phone',
-  'Country',
-  'Geography',
-  'Source',
-  'Slot',
-  'L1',
-  'L2',
-  'L3',
-  'Verified',
-  'Recruiter',
-  'Aggregator',
-  'Start date',
-  'Hub',
-];
+export const SIGNUP_EXPORT_HEADERS = ['Name', 'Location', 'Primary mobile'];
+
+export const VERIFIED_CSV_COLUMN = 'primary_mobile';
+
+export const VERIFIED_CSV_NOTE =
+  'Upload a CSV with a primary_mobile column (or one number per line). Only partners with a valid Singapore number on file are verified and approved; every other row goes to the fail CSV.';
+
+export const FAIL_CSV_FILE_NAME = 'verification-failures.csv';
+
+export const FAIL_CSV_HEADERS = ['Row', 'Primary mobile', 'Reason'];
+
+export const IMPORT_OUTCOME_LABEL: Record<ImportRowOutcome, string> = {
+  [ImportRowOutcome.Accepted]: 'Verified and approved',
+  [ImportRowOutcome.InvalidPhone]: 'Invalid phone number',
+  [ImportRowOutcome.DuplicateInFile]: 'Duplicate row in file',
+  [ImportRowOutcome.NotFound]: 'No sign-up with this primary mobile',
+  [ImportRowOutcome.AlreadyVerified]: 'Already verified',
+  [ImportRowOutcome.NoSingaporeNumber]: 'No Singapore number on file',
+};
+
+export const SINGAPORE_PHONE_NOTE =
+  'Adding the first Singapore number creates the lead in provider-onboarding-service (mocked here). Updating an existing number only changes the stored value.';
+
+export const SINGAPORE_PHONE_RULE_MESSAGE = 'Use a Singapore mobile number, e.g. +65 9123 4567';
+
+export const LOCK_CLEANUP_NOTE =
+  'A lock stops counting as soon as its release time passes; the daily cleanup marks those locks inactive so the history below stays readable.';
+
+export const LOCK_STATE_TAG: Record<LockState, EventTagStyle> = {
+  [LockState.Active]: { label: 'Active', color: 'success' },
+  [LockState.Inactive]: { label: 'Inactive' },
+};
+
+export const INACTIVE_REASON_LABEL: Record<InactiveReason, string> = {
+  [InactiveReason.Expired]: 'Release time passed',
+  [InactiveReason.Placed]: 'Placement saved',
+  [InactiveReason.Released]: 'Released by recruiter',
+};
 
 export const OVERVIEW_STATS: OverviewMetric[] = [
   { label: 'Total signups', hint: 'Partners registered for the selected filters', matches: () => true },
-  { label: 'Interviews booked', hint: 'Signups holding an interview slot', matches: row => Boolean(row.candidate.slotId) },
-  { label: 'UC Verified', hint: 'Passed L1–L3 and confirmed by a trainer', matches: row => row.candidate.verified },
+  {
+    label: 'Singapore number on file',
+    hint: 'Lead created in provider-onboarding-service',
+    matches: row => Boolean(row.candidate.singaporePhone),
+  },
+  { label: 'UC Verified', hint: 'Approved through the verified list upload', matches: row => row.candidate.verified },
   {
     label: 'Aggregator assigned',
     hint: 'Recruiter placement saved with an aggregator',
@@ -95,22 +124,14 @@ export const OVERVIEW_STATS: OverviewMetric[] = [
 
 export const FUNNEL_STEPS: OverviewMetric[] = [
   { label: 'Signups', matches: () => true },
-  { label: 'L1 passed', matches: row => row.candidate.results[AssessmentStage.L1] === StageResult.Passed },
-  { label: 'L2 passed', matches: row => row.candidate.results[AssessmentStage.L2] === StageResult.Passed },
-  { label: 'L3 passed', matches: row => row.candidate.results[AssessmentStage.L3] === StageResult.Passed },
+  { label: 'Singapore number', matches: row => Boolean(row.candidate.singaporePhone) },
   { label: 'UC Verified', matches: row => row.candidate.verified },
   { label: 'Aggregator assigned', matches: row => Boolean(row.reservation?.aggregatorId) },
 ];
 
-export const INVITATION_TAG_COLOR: Record<InvitationStatus, string | undefined> = {
-  [InvitationStatus.Queued]: undefined,
-  [InvitationStatus.Sent]: 'blue',
-  [InvitationStatus.Completed]: 'success',
-};
-
 export const RESERVATION_EVENT_TAG: Record<ReservationEventType, EventTagStyle> = {
-  [ReservationEventType.Opened]: { label: 'Opened' },
+  [ReservationEventType.Opened]: { label: 'Locked' },
   [ReservationEventType.PlacementSaved]: { label: 'Placement saved', color: 'success' },
-  [ReservationEventType.Expired]: { label: 'Released — not assigned in time', color: 'warning' },
+  [ReservationEventType.Expired]: { label: 'Released — release time passed', color: 'warning' },
   [ReservationEventType.HubUpdated]: { label: 'Hub updated', color: 'blue' },
 };

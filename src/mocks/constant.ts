@@ -1,6 +1,4 @@
-import { AssessmentStage, StageResult, StageResults } from '@/domain/interface';
-
-export const MOCK_DB_STORAGE_KEY = 'recruitment-portal-mock-db-v1';
+export const MOCK_DB_STORAGE_KEY = 'recruitment-portal-mock-db-v2';
 
 export const MOCK_LATENCY_MS = 120;
 
@@ -10,11 +8,9 @@ export const MAX_RESERVATION_EVENTS = 200;
 
 export const HOUR_MS = 60 * 60 * 1000;
 
-export const PASSED_ALL_RESULTS: StageResults = {
-  [AssessmentStage.L1]: StageResult.Passed,
-  [AssessmentStage.L2]: StageResult.Passed,
-  [AssessmentStage.L3]: StageResult.Passed,
-};
+export const MOCK_LEAD_ID_PREFIX = 'lead-';
+
+export const VERIFIED_BY_IMPORT = 'Verified list upload';
 
 export const SINGAPORE_CENTRE = {
   centre: 'UC Singapore Training Centre',

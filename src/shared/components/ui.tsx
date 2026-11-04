@@ -2,8 +2,8 @@ import { CheckCircleFilled } from '@ant-design/icons';
 import { Avatar, Card, Flex, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { getInitials } from '@/domain/format';
-import { CANDIDATE_AVATAR_STYLE, RESULT_TAG_COLOR } from './constant';
-import { NoticeProps, PageHeaderProps, ResultTagProps, StatTileProps } from './interface';
+import { CANDIDATE_AVATAR_STYLE } from './constant';
+import { NoticeProps, PageHeaderProps, StatTileProps } from './interface';
 
 export const PageHeader = ({ title, subtitle, extra, back }: PageHeaderProps) => (
   <div className="page-header">
@@ -34,6 +34,7 @@ export const StatTile = ({ label, value, hint, to }: StatTileProps) => {
       {hint && <div className="stat-hint">{hint}</div>}
     </Card>
   );
+
   return to ? <Link to={to}>{tile}</Link> : tile;
 };
 
@@ -41,10 +42,6 @@ export const Notice = ({ tone = 'info', children, style }: NoticeProps) => (
   <div className={`notice notice-${tone}`} style={style}>
     {children}
   </div>
-);
-
-export const ResultTag = ({ result, label }: ResultTagProps) => (
-  <Tag color={RESULT_TAG_COLOR[result]}>{label ? `${label}: ${result}` : result}</Tag>
 );
 
 export const VerificationTag = ({ verified }: { verified: boolean }) =>

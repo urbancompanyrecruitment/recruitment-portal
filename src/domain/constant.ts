@@ -1,34 +1,6 @@
-import {
-  AssessmentStage,
-  CookingFrequency,
-  Geography,
-  ProviderCategory,
-  RecruitmentSource,
-  StageResult,
-  YesNo,
-} from './interface';
+import { CookingFrequency, Geography, ProviderCategory, RecruitmentSource, YesNo } from './interface';
 
 export const APP_NAME = 'TalentLink';
-
-export const ASSESSMENT_STAGES: AssessmentStage[] = [AssessmentStage.L1, AssessmentStage.L2, AssessmentStage.L3];
-
-export const STAGE_LABEL: Record<AssessmentStage, string> = {
-  [AssessmentStage.L1]: 'L1',
-  [AssessmentStage.L2]: 'L2',
-  [AssessmentStage.L3]: 'L3',
-};
-
-export const STAGE_DESCRIPTION: Record<AssessmentStage, string> = {
-  [AssessmentStage.L1]: 'English interview',
-  [AssessmentStage.L2]: 'Cleaning interview',
-  [AssessmentStage.L3]: 'Situation / customer MCQ',
-};
-
-export const PENDING_RESULTS: Record<AssessmentStage, StageResult> = {
-  [AssessmentStage.L1]: StageResult.Pending,
-  [AssessmentStage.L2]: StageResult.Pending,
-  [AssessmentStage.L3]: StageResult.Pending,
-};
 
 export const GEOGRAPHIES: Geography[] = [Geography.Singapore, Geography.Myanmar, Geography.Overseas];
 
@@ -64,7 +36,17 @@ export const MAX_PARTNER_AGE = 80;
 
 export const PHONE_PATTERN = /^\+[0-9][0-9\s()-]{6,18}$/;
 
-export const RESERVATION_WINDOW_MS = 48 * 60 * 60 * 1000;
+export const SINGAPORE_DIAL_CODE = '+65';
+
+export const SINGAPORE_PHONE_PATTERN = /^\+65\s?[89]\d{3}\s?\d{4}$/;
+
+export const NON_DIGITS = /\D/g;
+
+export const WHITESPACE = /\s/g;
+
+export const LOCK_TTL_MS = 48 * 60 * 60 * 1000;
+
+export const LOCK_EXPIRED_LABEL = 'Expired';
 
 export const HUB_NOTICE_WINDOW_DAYS = 14;
 

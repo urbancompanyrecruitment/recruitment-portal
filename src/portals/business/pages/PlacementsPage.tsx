@@ -3,14 +3,21 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useAggregators, useCandidates, useRecruiters, useReservationEvents, useReservations } from '@/api/hooks';
 import { updateAggregatorQuota } from '@/api/people';
-import { updateHub } from '@/api/reservations';
+import { runLockCleanup, updateHub } from '@/api/reservations';
 import { DATE_FORMAT } from '@/domain/constant';
 import { formatDate, formatDateTime, toIsoDate } from '@/domain/format';
 import { Reservation, ReservationEvent, ReservationEventType } from '@/domain/interface';
 import { isJoiningWithinNoticeWindow } from '@/domain/reservation';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { Notice, PageHeader } from '@/shared/components/ui';
-import { BUSINESS_MESSAGE, EMPTY_VALUE, TABLE_PAGE_SIZE } from '../constant';
+import {
+  BUSINESS_MESSAGE,
+  EMPTY_VALUE,
+  INACTIVE_REASON_LABEL,
+  LOCK_CLEANUP_NOTE,
+  LOCK_STATE_TAG,
+  TABLE_PAGE_SIZE,
+} from '../constant';
 import { AggregatorUsage, HubFormValues, HubUpdateVariables, QuotaUpdateVariables } from '../interface';
 import { toPercent } from '../utils';
 
@@ -30,6 +37,7 @@ export const PlacementsPage = () => {
     ({ aggregatorId, quota }: QuotaUpdateVariables) => updateAggregatorQuota(aggregatorId, quota),
     BUSINESS_MESSAGE.quotaSaved,
   );
+  const cleanup = useAppMutation<void, number>(runLockCleanup, BUSINESS_MESSAGE.locksDeactivated);
   const today = toIsoDate();
 
   const candidateName = (candidateId: string) =>
@@ -37,6 +45,7 @@ export const PlacementsPage = () => {
   const releasedEvents = events.filter(event => event.type === ReservationEventType.Expired);
   const usage: AggregatorUsage[] = aggregators.map(aggregator => {
     const assigned = reservations.filter(reservation => reservation.aggregatorId === aggregator.id);
+
     return {
       aggregator,
       used: assigned.length,
@@ -45,18 +54,20 @@ export const PlacementsPage = () => {
     };
   });
 
-  const reservationColumns: TableColumnsType<Reservation> = [
+  const lockColumns: TableColumnsType<Reservation> = [
     {
       title: 'Provider',
       key: 'provider',
       render: (_, reservation) => <Typography.Text strong>{candidateName(reservation.candidateId)}</Typography.Text>,
     },
     {
-      title: 'Recruiter',
-      key: 'recruiter',
+      title: 'Locked by',
+      key: 'lockedBy',
       render: (_, reservation) => {
         const recruiter = recruiters.find(item => item.id === reservation.recruiterId);
+
         if (!recruiter) return EMPTY_VALUE;
+
         return (
           <>
             <div>{recruiter.name}</div>
@@ -64,6 +75,20 @@ export const PlacementsPage = () => {
           </>
         );
       },
+    },
+    { title: 'Locked at', key: 'lockedAt', render: (_, reservation) => formatDateTime(reservation.lockedAt) },
+    { title: 'Release at', key: 'lockReleaseAt', render: (_, reservation) => formatDateTime(reservation.lockReleaseAt) },
+    {
+      title: 'State',
+      key: 'state',
+      render: (_, reservation) => (
+        <>
+          <Tag color={LOCK_STATE_TAG[reservation.state].color}>{LOCK_STATE_TAG[reservation.state].label}</Tag>
+          {reservation.inactiveReason && (
+            <div className="muted small">{INACTIVE_REASON_LABEL[reservation.inactiveReason]}</div>
+          )}
+        </>
+      ),
     },
     {
       title: 'Aggregator',
@@ -75,17 +100,13 @@ export const PlacementsPage = () => {
     },
     { title: 'Start date', key: 'startDate', render: (_, reservation) => formatDate(reservation.startDate) },
     {
-      title: 'Reservation deadline',
-      key: 'deadline',
-      render: (_, reservation) =>
-        reservation.aggregatorId ? <Tag color="success">Assigned</Tag> : formatDateTime(reservation.deadlineAt),
-    },
-    {
       title: 'Hub',
       key: 'hub',
       render: (_, reservation) => {
         if (reservation.hub) return reservation.hub;
+
         if (isJoiningWithinNoticeWindow(reservation, today)) return <Tag color="warning">Hub due</Tag>;
+
         return <span className="muted">Pending</span>;
       },
     },
@@ -93,7 +114,7 @@ export const PlacementsPage = () => {
       title: 'Action',
       key: 'action',
       render: (_, reservation) => (
-        <Button size="small" onClick={() => setEditing(reservation)}>
+        <Button size="small" disabled={!reservation.aggregatorId} onClick={() => setEditing(reservation)}>
           {reservation.hub ? 'Edit hub' : 'Assign hub'}
         </Button>
       ),
@@ -130,7 +151,9 @@ export const PlacementsPage = () => {
           onPressEnter={event => event.currentTarget.blur()}
           onBlur={event => {
             const quota = Number(event.target.value);
+
             if (!event.target.value || !Number.isInteger(quota) || quota === aggregator.quota) return;
+
             saveQuota.mutate({ aggregatorId: aggregator.id, quota });
           }}
         />
@@ -161,19 +184,28 @@ export const PlacementsPage = () => {
   return (
     <>
       <PageHeader
-        title="Placements, quotas & hubs"
-        subtitle="See recruiter ownership and company allocations; manually update provider hubs."
+        title="Locks, placements & hubs"
+        subtitle="See which recruiter holds each partner, company allocations, and update provider hubs."
       />
       <Flex vertical gap={18}>
-        <Card title="Current reservations" styles={{ body: { padding: 0 } }}>
+        <Card
+          title="Recruiter locks"
+          extra={
+            <Button loading={cleanup.isPending} onClick={() => cleanup.mutate()}>
+              Run daily lock cleanup
+            </Button>
+          }
+          styles={{ body: { padding: 0 } }}
+        >
+          <Notice style={{ margin: 16 }}>{LOCK_CLEANUP_NOTE}</Notice>
           <Table
             rowKey="candidateId"
-            columns={reservationColumns}
+            columns={lockColumns}
             dataSource={reservations}
             loading={isLoading}
             pagination={{ pageSize: TABLE_PAGE_SIZE, hideOnSinglePage: true }}
             scroll={{ x: 'max-content' }}
-            locale={{ emptyText: 'No profiles are reserved right now.' }}
+            locale={{ emptyText: 'No partner is locked right now.' }}
           />
         </Card>
 
@@ -228,6 +260,7 @@ export const PlacementsPage = () => {
           }}
           onFinish={({ hub, startDate, hubInstructions }) => {
             if (!editing) return;
+
             saveHub.mutate(
               {
                 candidateId: editing.candidateId,

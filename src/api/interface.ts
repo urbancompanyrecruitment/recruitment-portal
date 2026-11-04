@@ -2,6 +2,7 @@ import {
   Candidate,
   CookingFrequency,
   Geography,
+  ImportRowOutcome,
   InterviewSlot,
   RecruitmentSource,
   Reservation,
@@ -39,7 +40,8 @@ export interface DashboardUser {
 
 export interface RegistrationInput {
   name: string;
-  phone: string;
+  primaryPhone: string;
+  singaporePhone?: string;
   country: string;
   city: string;
   nationality: string;
@@ -54,13 +56,26 @@ export interface RegistrationInput {
   slotId?: string;
 }
 
+export interface RegistrationResult {
+  candidate: Candidate;
+  slot?: InterviewSlot;
+}
+
 export interface BookableSlot extends InterviewSlot {
   seatsLeft: number;
 }
 
-export interface RegistrationDetails {
-  candidate: Candidate;
-  slot?: InterviewSlot;
+export interface ImportRow {
+  rowNumber: number;
+  primaryPhone: string;
+  outcome: ImportRowOutcome;
+  candidateId?: string;
+}
+
+export interface VerifiedImportResult {
+  fileName: string;
+  counts: { rows: number; accepted: number; failed: number };
+  rows: ImportRow[];
 }
 
 export type AvailableCandidate = Pick<

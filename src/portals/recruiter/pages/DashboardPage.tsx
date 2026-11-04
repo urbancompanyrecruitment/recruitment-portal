@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { expireUnassignedReservations, resetMockData } from '@/api/reservations';
 import { formatDate } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
-import { formatTimeLeft, getReservationStatus } from '@/domain/reservation';
+import { formatLockStatus, getReservationStatus, isLockActive } from '@/domain/reservation';
 import { useSessionUser } from '@/shared/auth/AuthProvider';
 import { CandidateAvatar, Notice, PageHeader, StatTile } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
@@ -31,14 +31,19 @@ export const DashboardPage = () => {
 
   const reservations = mine.data ?? [];
   const awaiting = reservations.filter(
-    ({ reservation }) => getReservationStatus(reservation) === ReservationStatus.AwaitingAggregator,
+    ({ reservation }) =>
+      getReservationStatus(reservation) === ReservationStatus.AwaitingAggregator &&
+      isLockActive(reservation, mine.dataUpdatedAt),
+  );
+  const assigned = reservations.filter(
+    ({ reservation }) => getReservationStatus(reservation) === ReservationStatus.AggregatorAssigned,
   );
   const preview = (available.data ?? []).slice(0, DASHBOARD_PREVIEW_COUNT);
   const isLoading = available.isLoading || mine.isLoading;
   const counts: Record<DashboardMetric, number> = {
     [DashboardMetric.Available]: available.data?.length ?? 0,
     [DashboardMetric.Awaiting]: awaiting.length,
-    [DashboardMetric.Assigned]: reservations.length - awaiting.length,
+    [DashboardMetric.Assigned]: assigned.length,
     [DashboardMetric.JoiningSoon]: joiningSoon.length,
   };
 
@@ -76,7 +81,7 @@ export const DashboardPage = () => {
                       <Typography.Text strong>{candidate.name}</Typography.Text>
                       <div className="muted small">Aggregator not assigned</div>
                     </div>
-                    <Tag color="warning">{formatTimeLeft(reservation.deadlineAt, mine.dataUpdatedAt)}</Tag>
+                    <Tag color="warning">{formatLockStatus(reservation, mine.dataUpdatedAt)}</Tag>
                     <Link to={RECRUITER_PATH.candidate(candidate.id)}>Open profile →</Link>
                   </Flex>
                 ))
@@ -154,7 +159,7 @@ export const DashboardPage = () => {
           <div>
             <strong>Demo controls</strong>
             <div className="small">
-              Simulate the reservation deadline passing, or restore the original sample data. Mock data only.
+              Simulate your lock release time passing (and the daily cleanup), or restore the original sample data. Mock data only.
             </div>
           </div>
           <Flex gap={8} wrap>

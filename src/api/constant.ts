@@ -1,6 +1,5 @@
 export const QUERY_KEY = {
   candidates: ['candidates'],
-  registration: (id: string) => ['registration', id],
   slots: ['slots'],
   bookableSlots: (geography: string) => ['slots', 'bookable', geography],
   trainers: ['trainers'],
@@ -13,8 +12,6 @@ export const QUERY_KEY = {
   candidateProfile: (candidateId: string, recruiterId: string) => ['candidate-profile', candidateId, recruiterId],
   currentUser: ['current-user'],
 } as const;
-
-export const NON_DIGITS = /\D/g;
 
 export const TOKEN_COOKIE = 'token';
 
@@ -33,12 +30,13 @@ export const API_ERROR = {
   trainerNotFound: 'Trainer not found.',
   recruiterNotFound: 'Recruiter not found.',
   aggregatorNotFound: 'Aggregator not found.',
-  reservationNotFound: 'This profile is not reserved for you. It may have expired.',
-  duplicatePhone: 'This WhatsApp number is already registered.',
+  reservationNotFound: 'This profile is not locked by you. It may have expired.',
+  lockExpired: 'Your lock on this profile has expired. It is back in the pool.',
+  duplicatePhone: 'This primary mobile number is already registered.',
+  invalidSingaporePhone: 'Enter a valid Singapore mobile number (+65 8xxx xxxx or 9xxx xxxx).',
   slotUnavailable: 'That slot is now full or unavailable. Choose another slot.',
   profileUnavailable: 'This profile is unavailable.',
-  reservedByOther: 'This profile is reserved by another recruiter.',
-  reservationExpired: 'Reservation expired. Select an available profile.',
+  reservedByOther: 'This profile is locked by another recruiter.',
   invalidPlacement: 'Choose a valid joining date and approved aggregator.',
   duplicateLogin: 'This login already exists.',
   invalidSlot: 'Use a future date and a positive capacity.',

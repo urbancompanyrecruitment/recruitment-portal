@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { StageResult, UserRole } from '@/domain/interface';
+import { UserRole } from '@/domain/interface';
 
 declare global {
   interface Window {
@@ -40,11 +40,6 @@ export interface NoticeProps {
   tone?: NoticeTone;
   children: ReactNode;
   style?: React.CSSProperties;
-}
-
-export interface ResultTagProps {
-  result: StageResult;
-  label?: string;
 }
 
 export interface LoginShellProps {

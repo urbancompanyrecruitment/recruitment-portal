@@ -4,18 +4,6 @@ export enum Geography {
   Overseas = 'Overseas',
 }
 
-export enum StageResult {
-  Pending = 'Pending',
-  Passed = 'Passed',
-  Failed = 'Failed',
-}
-
-export enum AssessmentStage {
-  L1 = 'l1',
-  L2 = 'l2',
-  L3 = 'l3',
-}
-
 export enum ProviderCategory {
   RegularCleaning = 'Regular cleaning',
   PremiumCleaning = 'Premium cleaning',
@@ -47,15 +35,20 @@ export enum YesNo {
   No = 'No',
 }
 
-export enum InvitationStatus {
-  Queued = 'Queued',
-  Sent = 'Sent',
-  Completed = 'Completed',
-}
-
 export enum UserRole {
   Recruiter = 'recruiter',
   Business = 'business',
+}
+
+export enum LockState {
+  Active = 'active',
+  Inactive = 'inactive',
+}
+
+export enum InactiveReason {
+  Expired = 'expired',
+  Placed = 'placed',
+  Released = 'released',
 }
 
 export enum ReservationEventType {
@@ -70,30 +63,26 @@ export enum ReservationStatus {
   AggregatorAssigned = 'aggregator-assigned',
 }
 
-export type StageResults = Record<AssessmentStage, StageResult>;
-
-export interface AuditStamp {
-  id: string;
-  by: string;
-  at: string;
+export enum ImportRowOutcome {
+  Accepted = 'accepted',
+  InvalidPhone = 'invalid_phone',
+  DuplicateInFile = 'duplicate_in_file',
+  NotFound = 'not_found',
+  AlreadyVerified = 'already_verified',
+  NoSingaporeNumber = 'no_singapore_number',
 }
 
-export interface CandidateNote extends AuditStamp {
-  text: string;
-}
-
-export interface StageAttempt {
-  stage: AssessmentStage;
-  previous: StageResult;
-  result: StageResult;
-  trainer: string;
-  at: string;
+export interface Onboarding {
+  leadId: string;
+  leadCreatedAt: string;
+  approvedAt?: string;
 }
 
 export interface Candidate {
   id: string;
   name: string;
-  phone: string;
+  primaryPhone: string;
+  singaporePhone?: string;
   country: string;
   city: string;
   nationality: string;
@@ -109,14 +98,10 @@ export interface Candidate {
   category: ProviderCategory;
   yearsOfExperience: number;
   bio: string;
-  results: StageResults;
-  attempts: StageAttempt[];
-  notes: CandidateNote[];
+  onboarding?: Onboarding;
   verified: boolean;
   verifiedBy?: string;
   verifiedAt?: string;
-  invitationStatus: InvitationStatus;
-  l1Completed: boolean;
   createdAt: string;
 }
 
@@ -159,8 +144,11 @@ export interface Aggregator {
 export interface Reservation {
   candidateId: string;
   recruiterId: string;
-  openedAt: number;
-  deadlineAt: number;
+  lockedAt: number;
+  lockReleaseAt: number;
+  state: LockState;
+  inactiveReason?: InactiveReason;
+  inactiveAt?: number;
   startDate?: string;
   aggregatorId?: string;
   hub?: string;
@@ -175,16 +163,12 @@ export interface ReservationEvent {
   at: number;
 }
 
-export interface StagePassRate {
-  passed: number;
-  assessed: number;
-}
-
 export interface ChannelFunnelRow {
   source: RecruitmentSource;
   signups: number;
-  passRates: Record<AssessmentStage, StagePassRate>;
-  selected: number;
+  withSingaporePhone: number;
+  verified: number;
+  placed: number;
   conversion: number;
 }
 

@@ -4,12 +4,14 @@ import { Route, Routes } from 'react-router-dom';
 import { AUTH_ENDPOINT, TOKEN_COOKIE } from '@/api/constant';
 import { environment } from '@/config';
 import { UserRole } from '@/domain/interface';
+import { readDb } from '@/mocks/db';
 import { readCookie, writeCookie } from '@/shared/utils/cookie';
 import { BUSINESS_SESSION, BUSINESS_TOKEN, DASHBOARD_USER_RESPONSE } from '@/test/constant';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { stubFetch } from '@/test/stubFetch';
-import { BUSINESS_LOGIN } from './constant';
+import { BUSINESS_LOGIN, BUSINESS_MESSAGE, IMPORT_OUTCOME_LABEL } from './constant';
 import BusinessPortal from './index';
+import { ImportRowOutcome } from '@/domain/interface';
 
 const renderPortal = (route: string, signedIn = true) =>
   renderWithProviders(
@@ -50,15 +52,50 @@ describe('Business portal', () => {
     expect(readCookie(TOKEN_COOKIE)).toBeUndefined();
   });
 
-  it('shows total signups and lists seeded candidates in the tracker', async () => {
+  it('shows total signups and lists seeded partners with their numbers', async () => {
     renderPortal('/business');
 
     expect(await screen.findByRole('heading', { name: 'Business overview' })).toBeInTheDocument();
     const totalTile = screen.getByText('Total signups').closest('.stat-tile') as HTMLElement;
     await waitFor(() => expect(within(totalTile).getByText('15')).toBeInTheDocument());
 
-    expect(await screen.findByText('Lin Lin Htet')).toBeInTheDocument();
+    const row = (await screen.findByText('Lin Lin Htet')).closest('tr') as HTMLElement;
+    expect(within(row).getAllByText('+65 9000 0012')).toHaveLength(2);
+    expect(within(row).getByText('Lead created')).toBeInTheDocument();
     expect(screen.getByText('Maria Lopez')).toBeInTheDocument();
+  });
+
+  it('adds a Singapore number and creates the onboarding lead', async () => {
+    const user = userEvent.setup();
+    renderPortal('/business/overview');
+
+    await user.click(await screen.findByRole('button', { name: 'Add Singapore number for Mira Santos' }));
+    await user.type(await screen.findByLabelText('Singapore mobile number'), '+65 9123 4567');
+    await user.click(screen.getByRole('button', { name: 'Save number' }));
+
+    expect(await screen.findByText(BUSINESS_MESSAGE.singaporePhoneSaved)).toBeInTheDocument();
+    const row = (await screen.findByText('Mira Santos')).closest('tr') as HTMLElement;
+    await waitFor(() => expect(within(row).getByText('Lead created')).toBeInTheDocument());
+    expect(readDb().candidates.find(candidate => candidate.id === 'c8')?.onboarding?.leadId).toMatch(/^lead-/);
+  });
+
+  it('uploads a verified list, approves eligible partners and offers a fail CSV', async () => {
+    const user = userEvent.setup();
+    renderPortal('/business/overview');
+
+    await screen.findByRole('heading', { name: 'Business overview' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(
+      input,
+      new File(['primary_mobile\n+65 9000 0012\n+66 9000 0008\n'], 'verified.csv', { type: 'text/csv' }),
+    );
+
+    expect(await screen.findByText('1 verified and approved, 1 failed out of 2 rows.')).toBeInTheDocument();
+    expect(screen.getByText(IMPORT_OUTCOME_LABEL[ImportRowOutcome.NoSingaporeNumber])).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Download fail CSV/ })).toBeInTheDocument();
+    const approved = readDb().candidates.find(candidate => candidate.id === 'c12');
+    expect(approved?.verified).toBe(true);
+    expect(approved?.onboarding?.approvedAt).toBeTruthy();
   });
 
   it('suspends a recruiter and shows the suspended status', async () => {
@@ -83,12 +120,18 @@ describe('Business portal', () => {
     expect(screen.getByText('Closed')).toBeInTheDocument();
   });
 
-  it('lists released profiles and saved hubs on placements', async () => {
+  it('shows lock records with their state and the released profiles', async () => {
     renderPortal('/business/placements');
 
-    const released = (await screen.findByText('Released profiles')).closest('.ant-card') as HTMLElement;
+    const locks = (await screen.findByText('Recruiter locks')).closest('.ant-card') as HTMLElement;
+    const nweRow = (await within(locks).findByText('Nwe Nwe Yi')).closest('tr') as HTMLElement;
+    expect(within(nweRow).getByText('Active')).toBeInTheDocument();
+    const anaRow = within(locks).getByText('Ana Reyes').closest('tr') as HTMLElement;
+    expect(within(anaRow).getByText('Inactive')).toBeInTheDocument();
+    expect(within(anaRow).getByText('Placement saved')).toBeInTheDocument();
+    const released = screen.getByText('Released profiles').closest('.ant-card') as HTMLElement;
     expect(await within(released).findByText('Hnin Wai')).toBeInTheDocument();
-    expect(await screen.findByText('Tampines · East cluster')).toBeInTheDocument();
+    expect(screen.getByText('Tampines · East cluster')).toBeInTheDocument();
   });
 
   it('saves an edited hub from the placements modal', async () => {
@@ -103,7 +146,7 @@ describe('Business portal', () => {
     await user.type(hubInput, 'Bedok · East cluster');
     await user.click(screen.getByText('Save hub'));
 
-    expect(await screen.findByText('Hub and joining date saved to the assigned recruiter profile.')).toBeInTheDocument();
+    expect(await screen.findByText(BUSINESS_MESSAGE.hubSaved)).toBeInTheDocument();
     expect(await screen.findByText('Bedok · East cluster')).toBeInTheDocument();
   });
 });

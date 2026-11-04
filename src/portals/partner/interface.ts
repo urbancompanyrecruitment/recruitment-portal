@@ -2,7 +2,8 @@ import { CookingFrequency, Geography, RecruitmentSource, YesNo } from '@/domain/
 
 export interface RegistrationFormValues {
   name: string;
-  phone: string;
+  primaryPhone: string;
+  singaporePhone?: string;
   country: string;
   city: string;
   nationality: string;

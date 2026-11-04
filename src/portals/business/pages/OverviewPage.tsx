@@ -1,38 +1,60 @@
-import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Card, Col, DatePicker, Flex, Progress, Row, Select, Table, TableColumnsType, Tag, Typography } from 'antd';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Flex,
+  Form,
+  Input,
+  Modal,
+  Progress,
+  Row,
+  Select,
+  Table,
+  TableColumnsType,
+  Tag,
+  Typography,
+  Upload,
+} from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { importVerifiedCandidates, updateSingaporePhone } from '@/api/candidates';
 import { useAggregators, useCandidates, useRecruiters, useReservations, useSlots, useTrainers } from '@/api/hooks';
-import {
-  ASSESSMENT_STAGES,
-  DATE_FORMAT,
-  DAY_DATE_FORMAT,
-  GEOGRAPHIES,
-  RECRUITMENT_SOURCES,
-  STAGE_LABEL,
-} from '@/domain/constant';
+import { ImportRow, VerifiedImportResult } from '@/api/interface';
+import { DATE_FORMAT, DAY_DATE_FORMAT, GEOGRAPHIES, RECRUITMENT_SOURCES, SINGAPORE_PHONE_PATTERN } from '@/domain/constant';
 import { toIsoDate } from '@/domain/format';
-import { buildChannelFunnel, formatPassRate } from '@/domain/funnel';
-import { ChannelFunnelRow, Geography, InterviewSlot, RecruitmentSource, YesNo } from '@/domain/interface';
+import { buildChannelFunnel } from '@/domain/funnel';
+import { Candidate, ChannelFunnelRow, Geography, ImportRowOutcome, InterviewSlot, RecruitmentSource } from '@/domain/interface';
 import { countSlotBookings, formatSlot } from '@/domain/slot';
-import { Notice, PageHeader, ResultTag, StatTile, VerificationTag } from '@/shared/components/ui';
-import { downloadCsv } from '@/shared/utils/csv';
+import { Notice, PageHeader, StatTile, VerificationTag } from '@/shared/components/ui';
+import { useAppMutation } from '@/shared/hooks/useAppMutation';
+import { downloadCsv, parseCsvColumn } from '@/shared/utils/csv';
 import {
+  BUSINESS_MESSAGE,
   EMPTY_VALUE,
+  FAIL_CSV_FILE_NAME,
+  FAIL_CSV_HEADERS,
   FUNNEL_BAR_HEIGHT,
   FUNNEL_DEFAULT_OFFSET_DAYS,
   FUNNEL_STEPS,
-  INVITATION_TAG_COLOR,
+  IMPORT_OUTCOME_LABEL,
   NOT_SCHEDULED,
   OVERVIEW_STATS,
+  SIGNUP_EXPORT_FILE_NAME,
+  SIGNUP_EXPORT_HEADERS,
+  SINGAPORE_PHONE_NOTE,
+  SINGAPORE_PHONE_RULE_MESSAGE,
   TABLE_PAGE_SIZE,
-  TRACKER_CSV_FILE_NAME,
-  TRACKER_CSV_HEADERS,
+  VERIFIED_CSV_COLUMN,
+  VERIFIED_CSV_NOTE,
 } from '../constant';
-import { TrackerRow } from '../interface';
+import { ImportVariables, SingaporePhoneFormValues, SingaporePhoneVariables, TrackerRow } from '../interface';
 import { toPercent } from '../utils';
 
 export const OverviewPage = () => {
+  const [phoneForm] = Form.useForm<SingaporePhoneFormValues>();
   const { data: candidates = [], isLoading } = useCandidates();
   const { data: slots = [], isLoading: slotsLoading } = useSlots();
   const { data: trainers = [] } = useTrainers();
@@ -42,6 +64,16 @@ export const OverviewPage = () => {
   const [geography, setGeography] = useState<Geography>();
   const [source, setSource] = useState<RecruitmentSource>();
   const [weekStart, setWeekStart] = useState<Dayjs>(() => dayjs().subtract(FUNNEL_DEFAULT_OFFSET_DAYS, 'day'));
+  const [editing, setEditing] = useState<Candidate>();
+  const [importResult, setImportResult] = useState<VerifiedImportResult>();
+  const savePhone = useAppMutation(
+    ({ candidateId, singaporePhone }: SingaporePhoneVariables) => updateSingaporePhone(candidateId, singaporePhone),
+    BUSINESS_MESSAGE.singaporePhoneSaved,
+  );
+  const importVerified = useAppMutation(
+    ({ primaryPhones, fileName }: ImportVariables) => importVerifiedCandidates(primaryPhones, fileName),
+    BUSINESS_MESSAGE.importCompleted,
+  );
 
   const filteredCandidates = candidates.filter(
     candidate =>
@@ -52,6 +84,7 @@ export const OverviewPage = () => {
     .map(candidate => {
       const slot = slots.find(item => item.id === candidate.slotId);
       const reservation = reservations.find(item => item.candidateId === candidate.id);
+
       return {
         candidate,
         slotLabel: slot ? formatSlot(slot) : NOT_SCHEDULED,
@@ -67,14 +100,17 @@ export const OverviewPage = () => {
   );
   const funnel = FUNNEL_STEPS.map(step => {
     const count = rows.filter(step.matches).length;
+
     return { label: step.label, count, percent: toPercent(count, rows.length) };
   });
   const signupsByGeography = GEOGRAPHIES.map(item => {
     const count = rows.filter(row => row.candidate.interviewGeography === item).length;
+
     return { geography: item, count, percent: toPercent(count, rows.length) };
   });
-  const channelFunnel = buildChannelFunnel(filteredCandidates, toIsoDate(weekStart));
+  const channelFunnel = buildChannelFunnel(filteredCandidates, reservations, toIsoDate(weekStart));
   const interviewSlots = slots.filter(slot => !geography || slot.geography === geography);
+  const failedRows = importResult?.rows.filter(row => row.outcome !== ImportRowOutcome.Accepted) ?? [];
 
   const trackerColumns: TableColumnsType<TrackerRow> = [
     {
@@ -97,23 +133,33 @@ export const OverviewPage = () => {
         </>
       ),
     },
+    { title: 'Primary mobile', key: 'primaryPhone', render: (_, { candidate }) => candidate.primaryPhone },
     {
-      title: 'Stage results',
-      key: 'results',
+      title: 'Singapore mobile',
+      key: 'singaporePhone',
       render: (_, { candidate }) => (
-        <Flex gap={4} wrap>
-          {ASSESSMENT_STAGES.map(stage => (
-            <ResultTag key={stage} result={candidate.results[stage]} label={STAGE_LABEL[stage]} />
-          ))}
+        <Flex align="center" gap={8}>
+          <span className={candidate.singaporePhone ? undefined : 'muted'}>{candidate.singaporePhone ?? EMPTY_VALUE}</span>
+          <Button
+            size="small"
+            aria-label={`${candidate.singaporePhone ? 'Edit' : 'Add'} Singapore number for ${candidate.name}`}
+            onClick={() => setEditing(candidate)}
+          >
+            {candidate.singaporePhone ? 'Edit' : 'Add'}
+          </Button>
         </Flex>
       ),
     },
     {
-      title: 'Invitation status',
-      key: 'invitation',
-      render: (_, { candidate }) => (
-        <Tag color={INVITATION_TAG_COLOR[candidate.invitationStatus]}>{candidate.invitationStatus}</Tag>
-      ),
+      title: 'Onboarding',
+      key: 'onboarding',
+      render: (_, { candidate }) => {
+        if (candidate.onboarding?.approvedAt) return <Tag color="success">Approved</Tag>;
+
+        if (candidate.onboarding) return <Tag color="blue">Lead created</Tag>;
+
+        return <span className="muted">{EMPTY_VALUE}</span>;
+      },
     },
     {
       title: 'UC Verified',
@@ -133,34 +179,20 @@ export const OverviewPage = () => {
           <span className="muted">{EMPTY_VALUE}</span>
         ),
     },
-    {
-      title: 'Trainer comments',
-      key: 'notes',
-      width: 280,
-      render: (_, { candidate }) =>
-        candidate.notes.length ? (
-          <Flex vertical gap={4}>
-            {candidate.notes.map(note => (
-              <span key={note.id} className="small">
-                <strong>{note.by}:</strong> {note.text}
-              </span>
-            ))}
-          </Flex>
-        ) : (
-          <span className="muted">{EMPTY_VALUE}</span>
-        ),
-    },
+  ];
+
+  const failedColumns: TableColumnsType<ImportRow> = [
+    { title: 'Row', dataIndex: 'rowNumber', key: 'rowNumber', width: 80 },
+    { title: 'Primary mobile', dataIndex: 'primaryPhone', key: 'primaryPhone' },
+    { title: 'Reason', key: 'reason', render: (_, row) => IMPORT_OUTCOME_LABEL[row.outcome] },
   ];
 
   const channelColumns: TableColumnsType<ChannelFunnelRow> = [
     { title: 'Channel', dataIndex: 'source', key: 'source' },
     { title: 'Signups', dataIndex: 'signups', key: 'signups' },
-    ...ASSESSMENT_STAGES.map(stage => ({
-      title: `${STAGE_LABEL[stage]} pass rate`,
-      key: stage,
-      render: (_: unknown, row: ChannelFunnelRow) => formatPassRate(row.passRates[stage]),
-    })),
-    { title: 'Selected PROs', dataIndex: 'selected', key: 'selected' },
+    { title: 'Singapore number', dataIndex: 'withSingaporePhone', key: 'withSingaporePhone' },
+    { title: 'UC Verified', dataIndex: 'verified', key: 'verified' },
+    { title: 'Placed', dataIndex: 'placed', key: 'placed' },
     { title: 'Conversion %', key: 'conversion', render: (_, row) => `${row.conversion}%` },
   ];
 
@@ -199,7 +231,7 @@ export const OverviewPage = () => {
     <>
       <PageHeader
         title="Business overview"
-        subtitle="Track signups, assessment results and channel conversion across your recruitment flow."
+        subtitle="Track signups, Singapore numbers, verification and channel conversion across your recruitment flow."
       />
       <Flex vertical gap={18}>
         <Card>
@@ -224,36 +256,86 @@ export const OverviewPage = () => {
                 options={channelOptions}
               />
             </Flex>
-            <Button
-              icon={<DownloadOutlined />}
-              disabled={!rows.length}
-              onClick={() =>
-                downloadCsv(
-                  [
-                    TRACKER_CSV_HEADERS,
-                    ...rows.map(({ candidate, slotLabel, recruiter, aggregator, reservation }) => [
-                      candidate.name,
-                      candidate.phone,
-                      candidate.country,
-                      candidate.interviewGeography,
-                      candidate.source,
-                      slotLabel,
-                      ...ASSESSMENT_STAGES.map(stage => candidate.results[stage]),
-                      candidate.verified ? YesNo.Yes : YesNo.No,
-                      recruiter?.name,
-                      aggregator?.name,
-                      reservation?.startDate,
-                      reservation?.hub,
-                    ]),
-                  ],
-                  TRACKER_CSV_FILE_NAME,
-                )
-              }
-            >
-              Download tracker CSV
-            </Button>
+            <Flex gap={8} wrap>
+              <Button
+                icon={<DownloadOutlined />}
+                disabled={!rows.length}
+                onClick={() =>
+                  downloadCsv(
+                    [
+                      SIGNUP_EXPORT_HEADERS,
+                      ...rows.map(({ candidate }) => [
+                        candidate.name,
+                        `${candidate.city}, ${candidate.country}`,
+                        candidate.primaryPhone,
+                      ]),
+                    ],
+                    SIGNUP_EXPORT_FILE_NAME,
+                  )
+                }
+              >
+                Download signed-up partners CSV
+              </Button>
+              <Upload
+                accept=".csv,text/csv"
+                showUploadList={false}
+                beforeUpload={file => {
+                  file
+                    .text()
+                    .then(text =>
+                      importVerified.mutate(
+                        { primaryPhones: parseCsvColumn(text, VERIFIED_CSV_COLUMN), fileName: file.name },
+                        { onSuccess: setImportResult },
+                      ),
+                    );
+
+                  return false;
+                }}
+              >
+                <Button type="primary" icon={<UploadOutlined />} loading={importVerified.isPending}>
+                  Upload verified partners CSV
+                </Button>
+              </Upload>
+            </Flex>
           </Flex>
+          <Typography.Paragraph type="secondary" className="small" style={{ margin: '12px 0 0' }}>
+            {VERIFIED_CSV_NOTE}
+          </Typography.Paragraph>
         </Card>
+
+        {importResult && (
+          <Card
+            title={`Verified list: ${importResult.fileName}`}
+            extra={
+              failedRows.length ? (
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() =>
+                    downloadCsv(
+                      [
+                        FAIL_CSV_HEADERS,
+                        ...failedRows.map(row => [row.rowNumber, row.primaryPhone, IMPORT_OUTCOME_LABEL[row.outcome]]),
+                      ],
+                      FAIL_CSV_FILE_NAME,
+                    )
+                  }
+                >
+                  Download fail CSV
+                </Button>
+              ) : null
+            }
+          >
+            <Alert
+              type={failedRows.length ? 'warning' : 'success'}
+              showIcon
+              title={`${importResult.counts.accepted} verified and approved, ${importResult.counts.failed} failed out of ${importResult.counts.rows} rows.`}
+              style={{ marginBottom: failedRows.length ? 16 : 0 }}
+            />
+            {failedRows.length > 0 && (
+              <Table rowKey="rowNumber" columns={failedColumns} dataSource={failedRows} pagination={false} size="small" />
+            )}
+          </Card>
+        )}
 
         <Row gutter={[18, 18]}>
           {OVERVIEW_STATS.map(stat => (
@@ -297,7 +379,7 @@ export const OverviewPage = () => {
           </Col>
         </Row>
 
-        <Card title="Candidate tracker" styles={{ body: { padding: 0 } }}>
+        <Card title="Signed-up partners" styles={{ body: { padding: 0 } }}>
           <Table
             rowKey={row => row.candidate.id}
             columns={trackerColumns}
@@ -305,7 +387,7 @@ export const OverviewPage = () => {
             loading={isLoading}
             pagination={{ pageSize: TABLE_PAGE_SIZE, hideOnSinglePage: true }}
             scroll={{ x: 'max-content' }}
-            locale={{ emptyText: 'No candidates match these filters.' }}
+            locale={{ emptyText: 'No partners match these filters.' }}
           />
         </Card>
 
@@ -324,10 +406,7 @@ export const OverviewPage = () => {
             </Flex>
           }
         >
-          <Notice>
-            Signup cohort for the selected week; pass rate = passes / assessed candidates. Pending results are
-            excluded.
-          </Notice>
+          <Notice>Signup cohort for the selected week; conversion = UC Verified / signups.</Notice>
           <Table
             rowKey="source"
             columns={channelColumns}
@@ -351,6 +430,41 @@ export const OverviewPage = () => {
           />
         </Card>
       </Flex>
+
+      <Modal
+        open={Boolean(editing)}
+        title={editing && `${editing.singaporePhone ? 'Update' : 'Add'} Singapore number · ${editing.name}`}
+        okText="Save number"
+        confirmLoading={savePhone.isPending}
+        destroyOnHidden
+        onOk={() => phoneForm.submit()}
+        onCancel={() => setEditing(undefined)}
+      >
+        <Notice>{SINGAPORE_PHONE_NOTE}</Notice>
+        <Form
+          form={phoneForm}
+          layout="vertical"
+          requiredMark={false}
+          clearOnDestroy
+          initialValues={{ singaporePhone: editing?.singaporePhone }}
+          onFinish={({ singaporePhone }) => {
+            if (!editing) return;
+
+            savePhone.mutate(
+              { candidateId: editing.id, singaporePhone: singaporePhone.trim() },
+              { onSuccess: () => setEditing(undefined) },
+            );
+          }}
+        >
+          <Form.Item
+            name="singaporePhone"
+            label="Singapore mobile number"
+            rules={[{ required: true, message: SINGAPORE_PHONE_RULE_MESSAGE }, { pattern: SINGAPORE_PHONE_PATTERN, message: SINGAPORE_PHONE_RULE_MESSAGE }]}
+          >
+            <Input type="tel" placeholder="+65 9123 4567" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 };

@@ -1,8 +1,17 @@
 import dayjs from 'dayjs';
-import { CookingFrequency, Geography, RecruitmentSource, ReservationEventType, YesNo } from '@/domain/interface';
-import { readDb } from '@/mocks/db';
+import {
+  CookingFrequency,
+  Geography,
+  ImportRowOutcome,
+  InactiveReason,
+  LockState,
+  RecruitmentSource,
+  ReservationEventType,
+  YesNo,
+} from '@/domain/interface';
+import { readDb, writeDb } from '@/mocks/db';
 import { signInRecruiter } from './auth';
-import { getRegistration, listCandidates, markL1Completed, registerCandidate } from './candidates';
+import { importVerifiedCandidates, listCandidates, registerCandidate, updateSingaporePhone } from './candidates';
 import { API_ERROR } from './constant';
 import { RegistrationInput } from './interface';
 import { createRecruiter, toggleRecruiterAccess, updateAggregatorQuota } from './people';
@@ -12,6 +21,7 @@ import {
   listAvailableCandidates,
   listMyReservations,
   reserveCandidate,
+  runLockCleanup,
   savePlacement,
   updateHub,
 } from './reservations';
@@ -19,9 +29,9 @@ import { createSlot, listBookableSlotsFor, toggleSlotAvailability } from './slot
 
 const registration: RegistrationInput = {
   name: 'Test Partner',
-  phone: '+65 9999 1234',
-  country: 'Singapore',
-  city: 'Singapore',
+  primaryPhone: '+95 9999 1234',
+  country: 'Myanmar',
+  city: 'Yangon',
   nationality: 'Myanmar',
   age: 30,
   source: RecruitmentSource.TikTok,
@@ -36,23 +46,39 @@ const registration: RegistrationInput = {
 const inDays = (days: number) => dayjs().add(days, 'day').format('YYYY-MM-DD');
 
 describe('candidates api', () => {
-  it('registers a partner with pending results and a queued invitation', async () => {
-    const candidate = await registerCandidate(registration);
-    const details = await getRegistration(candidate.id);
+  it('registers a partner without a Singapore number and creates no lead', async () => {
+    const { candidate, slot } = await registerCandidate(registration);
 
-    expect(details.candidate).toMatchObject({ name: 'Test Partner', verified: false, invitationStatus: 'Queued' });
-    expect(details.candidate.results).toEqual({ l1: 'Pending', l2: 'Pending', l3: 'Pending' });
-    expect(details.slot?.id).toBe('s1');
+    expect(candidate).toMatchObject({ name: 'Test Partner', verified: false, primaryPhone: '+95 9999 1234' });
+    expect(candidate.singaporePhone).toBeUndefined();
+    expect(candidate.onboarding).toBeUndefined();
+    expect(slot?.id).toBe('s1');
   });
 
-  it('rejects a duplicate WhatsApp number regardless of formatting', async () => {
-    await expect(registerCandidate({ ...registration, phone: '+6500000001' })).rejects.toThrow(API_ERROR.duplicatePhone);
+  it('registers a partner with a Singapore number and creates the lead', async () => {
+    const { candidate } = await registerCandidate({ ...registration, singaporePhone: '+65 9123 4567' });
+
+    expect(candidate.singaporePhone).toBe('+65 9123 4567');
+    expect(candidate.onboarding?.leadId).toMatch(/^lead-/);
+    expect(candidate.onboarding?.approvedAt).toBeUndefined();
+  });
+
+  it('rejects an invalid Singapore number', async () => {
+    await expect(registerCandidate({ ...registration, singaporePhone: '+65 1234' })).rejects.toThrow(
+      API_ERROR.invalidSingaporePhone,
+    );
+  });
+
+  it('rejects a duplicate primary number regardless of formatting', async () => {
+    await expect(registerCandidate({ ...registration, primaryPhone: '+6590000001' })).rejects.toThrow(
+      API_ERROR.duplicatePhone,
+    );
   });
 
   it('rejects a slot that is full', async () => {
     await registerCandidate({ ...registration, slotId: 's7' });
 
-    await expect(registerCandidate({ ...registration, phone: '+65 9999 5678', slotId: 's7' })).rejects.toThrow(
+    await expect(registerCandidate({ ...registration, primaryPhone: '+95 9999 5678', slotId: 's7' })).rejects.toThrow(
       API_ERROR.slotUnavailable,
     );
   });
@@ -64,39 +90,67 @@ describe('candidates api', () => {
     expect(candidates.map(candidate => candidate.name)).toContain('May Thu');
   });
 
-  it('marks the online L1 test as completed', async () => {
-    const updated = await markL1Completed('c12');
+  it('creates the lead once when an admin adds a Singapore number', async () => {
+    const added = await updateSingaporePhone('c8', '+65 9123 0008');
+    const updated = await updateSingaporePhone('c8', '+65 9123 0009');
 
-    expect(updated).toMatchObject({ l1Completed: true, invitationStatus: 'Completed' });
+    expect(added.onboarding?.leadId).toMatch(/^lead-/);
+    expect(updated.onboarding?.leadId).toBe(added.onboarding?.leadId);
+    expect(updated.singaporePhone).toBe('+65 9123 0009');
+    await expect(updateSingaporePhone('c9', '12345')).rejects.toThrow(API_ERROR.invalidSingaporePhone);
+  });
+
+  it('verifies and approves only rows with a Singapore number on file', async () => {
+    const result = await importVerifiedCandidates(
+      ['+65 9000 0012', '+66 9000 0008', '+65 9000 0001', '+65 0000 0000', '', '+65 9000 0012'],
+      'verified.csv',
+    );
+
+    expect(result.counts).toEqual({ rows: 6, accepted: 1, failed: 5 });
+    expect(result.rows.map(row => row.outcome)).toEqual([
+      ImportRowOutcome.Accepted,
+      ImportRowOutcome.NoSingaporeNumber,
+      ImportRowOutcome.AlreadyVerified,
+      ImportRowOutcome.NotFound,
+      ImportRowOutcome.InvalidPhone,
+      ImportRowOutcome.DuplicateInFile,
+    ]);
+    const approved = readDb().candidates.find(candidate => candidate.id === 'c12');
+    expect(approved).toMatchObject({ verified: true });
+    expect(approved?.onboarding?.approvedAt).toBeTruthy();
+    expect(readDb().candidates.find(candidate => candidate.id === 'c8')?.verified).toBe(false);
   });
 });
 
 describe('reservations api', () => {
-  it('lists only verified, unreserved candidates without contact details', async () => {
+  it('lists only verified candidates without an active lock or placement, and no numbers', async () => {
     const available = await listAvailableCandidates();
     const names = available.map(candidate => candidate.name);
 
-    expect(names).toContain('Thandar Aung');
+    expect(names).toEqual(expect.arrayContaining(['Thandar Aung', 'Siti Rahma', 'Hnin Wai']));
     expect(names).not.toContain('Ana Reyes');
+    expect(names).not.toContain('Nwe Nwe Yi');
     expect(names).not.toContain('Mira Santos');
-    expect(available[0]).not.toHaveProperty('phone');
+    expect(available[0]).not.toHaveProperty('primaryPhone');
   });
 
-  it('reserves a profile exclusively for the first recruiter', async () => {
-    await reserveCandidate('c1', 'r-a');
+  it('locks a profile exclusively for the first recruiter with a release time', async () => {
+    const lock = await reserveCandidate('c1', 'r-a');
 
+    expect(lock).toMatchObject({ state: LockState.Active, recruiterId: 'r-a' });
+    expect(lock.lockReleaseAt).toBeGreaterThan(lock.lockedAt);
     await expect(reserveCandidate('c1', 'r-b')).rejects.toThrow(API_ERROR.reservedByOther);
     await expect(getReservedCandidate('c1', 'r-b')).rejects.toThrow(API_ERROR.reservationNotFound);
-    expect((await getReservedCandidate('c1', 'r-a')).candidate.phone).toBe('+65 0000 0001');
+    expect((await getReservedCandidate('c1', 'r-a')).candidate.primaryPhone).toBe('+65 9000 0001');
     expect((await listAvailableCandidates()).map(candidate => candidate.id)).not.toContain('c1');
     expect(readDb().reservationEvents.at(-1)).toMatchObject({ type: ReservationEventType.Opened, candidateId: 'c1' });
   });
 
-  it('refuses to reserve unverified candidates', async () => {
+  it('refuses to lock unverified candidates', async () => {
     await expect(reserveCandidate('c8', 'r-a')).rejects.toThrow(API_ERROR.profileUnavailable);
   });
 
-  it('saves a placement only with a known aggregator and a future date', async () => {
+  it('saves a placement only with a known aggregator and a future date, then marks the lock placed', async () => {
     await expect(savePlacement('c6', 'r-a', { startDate: inDays(-1), aggregatorId: 'ag-1' })).rejects.toThrow(
       API_ERROR.invalidPlacement,
     );
@@ -106,17 +160,49 @@ describe('reservations api', () => {
 
     const saved = await savePlacement('c6', 'r-a', { startDate: inDays(20), aggregatorId: 'ag-3' });
 
-    expect(saved).toMatchObject({ aggregatorId: 'ag-3', startDate: inDays(20) });
+    expect(saved).toMatchObject({
+      aggregatorId: 'ag-3',
+      startDate: inDays(20),
+      state: LockState.Inactive,
+      inactiveReason: InactiveReason.Placed,
+    });
   });
 
-  it('releases unassigned reservations back to the pool on expiry', async () => {
+  it('releases expired locks back to the pool and lets another recruiter lock', async () => {
     const released = await expireUnassignedReservations('r-a');
     const mine = await listMyReservations('r-a');
 
     expect(released).toBe(1);
-    expect(mine.map(item => item.candidate.id).sort()).toEqual(['c2', 'c5']);
+    expect(mine.find(item => item.candidate.id === 'c6')?.reservation).toMatchObject({
+      state: LockState.Inactive,
+      inactiveReason: InactiveReason.Expired,
+    });
     expect((await listAvailableCandidates()).map(candidate => candidate.id)).toContain('c6');
     expect(readDb().reservationEvents.at(-1)).toMatchObject({ type: ReservationEventType.Expired, candidateId: 'c6' });
+    await expect(getReservedCandidate('c6', 'r-a')).rejects.toThrow(API_ERROR.lockExpired);
+
+    const relocked = await reserveCandidate('c6', 'r-b');
+
+    expect(relocked).toMatchObject({ recruiterId: 'r-b', state: LockState.Active });
+  });
+
+  it('marks locks whose release time has passed as inactive in the daily cleanup', async () => {
+    const db = readDb();
+    writeDb({
+      ...db,
+      reservations: db.reservations.map(reservation =>
+        reservation.candidateId === 'c7' ? { ...reservation, lockReleaseAt: Date.now() - 1 } : reservation,
+      ),
+    });
+
+    const count = await runLockCleanup();
+
+    expect(count).toBe(1);
+    expect(readDb().reservations.find(reservation => reservation.candidateId === 'c7')).toMatchObject({
+      state: LockState.Inactive,
+      inactiveReason: InactiveReason.Expired,
+    });
+    expect((await listAvailableCandidates()).map(candidate => candidate.id)).toContain('c7');
   });
 
   it('lets the business team update the hub on a placement', async () => {

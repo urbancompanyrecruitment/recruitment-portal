@@ -21,12 +21,12 @@ import { QUERY_KEY } from '@/api/constant';
 import { useAggregators } from '@/api/hooks';
 import { PlacementInput } from '@/api/interface';
 import { getReservedCandidate, savePlacement } from '@/api/reservations';
-import { ASSESSMENT_STAGES, DATE_FORMAT, STAGE_LABEL } from '@/domain/constant';
+import { DATE_FORMAT } from '@/domain/constant';
 import { formatDate, formatDateTime, toIsoDate } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
-import { formatTimeLeft, getReservationStatus } from '@/domain/reservation';
+import { formatLockStatus, getReservationStatus } from '@/domain/reservation';
 import { useSessionUser } from '@/shared/auth/AuthProvider';
-import { CandidateAvatar, Notice, PageHeader, ResultTag, VerificationTag } from '@/shared/components/ui';
+import { CandidateAvatar, Notice, PageHeader, VerificationTag } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { RECRUITER_MESSAGE, RECRUITER_PATH, RESERVATION_REFETCH_MS, WHITESPACE } from '../constant';
 import { PlacementFormValues } from '../interface';
@@ -83,12 +83,12 @@ export const CandidateProfilePage = () => {
         </Notice>
       ) : (
         <Notice>
-          <strong>Reserved exclusively for your account</strong>
+          <strong>Locked exclusively for your account</strong>
           <div>
-            Assign an approved aggregator by {formatDateTime(reservation.deadlineAt)} ·{' '}
-            {formatTimeLeft(reservation.deadlineAt, profile.dataUpdatedAt)}.
+            Assign an approved aggregator by {formatDateTime(reservation.lockReleaseAt)} ·{' '}
+            {formatLockStatus(reservation, profile.dataUpdatedAt)}.
           </div>
-          <div className="small">Sample 48-hour reservation; the business time limit is still to be confirmed.</div>
+          <div className="small">Sample 48-hour lock; the business time limit is still to be confirmed.</div>
         </Notice>
       )}
       <Row gutter={[18, 18]}>
@@ -107,17 +107,17 @@ export const CandidateProfilePage = () => {
               <VerificationTag verified={candidate.verified} />
             </Flex>
             <div className="recruiter-phone-box">
-              <div className="muted small">Phone / WhatsApp</div>
+              <div className="muted small">Primary mobile / WhatsApp</div>
               <Flex justify="space-between" align="center" gap={12} wrap>
-                <a className="recruiter-phone-link" href={`tel:${candidate.phone.replace(WHITESPACE, '')}`}>
-                  {candidate.phone}
+                <a className="recruiter-phone-link" href={`tel:${candidate.primaryPhone.replace(WHITESPACE, '')}`}>
+                  {candidate.primaryPhone}
                 </a>
                 <Button
                   size="small"
                   icon={<CopyOutlined />}
                   onClick={() =>
                     Promise.resolve()
-                      .then(() => navigator.clipboard.writeText(candidate.phone))
+                      .then(() => navigator.clipboard.writeText(candidate.primaryPhone))
                       .then(() => message.success(RECRUITER_MESSAGE.phoneCopied))
                       .catch(() => message.error(RECRUITER_MESSAGE.phoneCopyFailed))
                   }
@@ -130,18 +130,17 @@ export const CandidateProfilePage = () => {
               column={1}
               size="small"
               items={[
+                { key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone ?? 'Not shared yet' },
                 { key: 'location', label: 'Current location', children: `${candidate.city}, ${candidate.country}` },
                 { key: 'nationality', label: 'Nationality', children: candidate.nationality },
                 { key: 'experience', label: 'Experience', children: `${candidate.yearsOfExperience} years` },
               ]}
             />
             <Typography.Paragraph style={{ margin: '14px 0 18px' }}>{candidate.bio}</Typography.Paragraph>
-            <div className="recruiter-fact-label">UC assessment results</div>
-            <Flex gap={6} wrap style={{ marginTop: 8 }}>
-              {ASSESSMENT_STAGES.map(stage => (
-                <ResultTag key={stage} result={candidate.results[stage]} label={STAGE_LABEL[stage]} />
-              ))}
-            </Flex>
+            <div className="recruiter-fact-label">UC verification</div>
+            <div className="small" style={{ marginTop: 8 }}>
+              {candidate.verifiedAt ? `Verified on ${formatDate(candidate.verifiedAt)}` : 'Not verified'}
+            </div>
           </Card>
         </Col>
         <Col xs={24} lg={14}>

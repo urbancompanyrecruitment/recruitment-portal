@@ -41,9 +41,9 @@ describe('Recruiter portal', () => {
     const card = (await screen.findByText('Thandar Aung')).closest('.ant-card') as HTMLElement;
     await user.click(within(card).getByRole('button', { name: /open profile/i }));
 
-    const phone = await screen.findByRole('link', { name: '+65 0000 0001' });
-    expect(phone).toHaveAttribute('href', 'tel:+6500000001');
-    expect(screen.getByText('Reserved exclusively for your account')).toBeInTheDocument();
+    const phone = await screen.findByRole('link', { name: '+65 9000 0001' });
+    expect(phone).toHaveAttribute('href', 'tel:+6590000001');
+    expect(screen.getByText('Locked exclusively for your account')).toBeInTheDocument();
   });
 
   it('hides a profile reserved by another recruiter', async () => {
@@ -51,7 +51,7 @@ describe('Recruiter portal', () => {
 
     expect(await screen.findByText(API_ERROR.reservationNotFound)).toBeInTheDocument();
     expect(screen.getByText('Profile unavailable')).toBeInTheDocument();
-    expect(screen.queryByText('+65 0000 0005')).not.toBeInTheDocument();
+    expect(screen.queryByText('+65 9000 0005')).not.toBeInTheDocument();
   });
 
   it('shows the dashboard pipeline and releases unassigned reservations from demo controls', async () => {

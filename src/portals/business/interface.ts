@@ -48,6 +48,20 @@ export interface QuotaUpdateVariables {
   quota: number;
 }
 
+export interface SingaporePhoneFormValues {
+  singaporePhone: string;
+}
+
+export interface SingaporePhoneVariables {
+  candidateId: string;
+  singaporePhone: string;
+}
+
+export interface ImportVariables {
+  primaryPhones: string[];
+  fileName: string;
+}
+
 export interface AggregatorUsage {
   aggregator: Aggregator;
   used: number;

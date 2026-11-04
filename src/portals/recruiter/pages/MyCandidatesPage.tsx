@@ -5,7 +5,7 @@ import { useAggregators } from '@/api/hooks';
 import { ReservedCandidate } from '@/api/interface';
 import { formatDate } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
-import { formatTimeLeft, getReservationStatus } from '@/domain/reservation';
+import { formatLockStatus, getReservationStatus } from '@/domain/reservation';
 import { useSessionUser } from '@/shared/auth/AuthProvider';
 import { CandidateAvatar, PageHeader } from '@/shared/components/ui';
 import { CANDIDATE_TABS, RECRUITER_PATH } from '../constant';
@@ -28,7 +28,7 @@ export const MyCandidatesPage = () => {
 
   return (
     <>
-      <PageHeader title="My candidates" subtitle="Manage your reserved profiles and confirmed aggregator placements." />
+      <PageHeader title="My candidates" subtitle="Manage your locked profiles and confirmed aggregator placements." />
       <Tabs
         activeKey={activeTab}
         onChange={key => setActiveTab(key as CandidateTab)}
@@ -92,7 +92,7 @@ export const MyCandidatesPage = () => {
                 getReservationStatus(reservation) === ReservationStatus.AggregatorAssigned ? (
                   <Tag color="success">Assigned</Tag>
                 ) : (
-                  <Tag color="warning">{formatTimeLeft(reservation.deadlineAt, dataUpdatedAt)}</Tag>
+                  <Tag color="warning">{formatLockStatus(reservation, dataUpdatedAt)}</Tag>
                 ),
             },
             {
