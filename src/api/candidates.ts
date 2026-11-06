@@ -1,11 +1,12 @@
 import dayjs from 'dayjs';
 import { Candidate, ImportRowOutcome, ProviderCategory } from '@/domain/interface';
+import { getPartnerStage } from '@/domain/partner';
 import { isValidSingaporePhone, phoneDigits } from '@/domain/phone';
 import { getInterviewCity, listBookableSlots, parseSlotId } from '@/domain/slot';
 import { MOCK_LEAD_ID_PREFIX, VERIFIED_BY_IMPORT } from '@/mocks/constant';
 import { findOrThrow, mockMutation, mockQuery } from './client';
 import { API_ERROR } from './constant';
-import { ImportRow, RegistrationInput, RegistrationResult, VerifiedImportResult } from './interface';
+import { ImportRow, PartnerStatus, RegistrationInput, RegistrationResult, VerifiedImportResult } from './interface';
 
 const createLead = (candidate: Candidate): Candidate => ({
   ...candidate,
@@ -35,7 +36,7 @@ const resolveImportOutcome = (
 
 export const listCandidates = (): Promise<Candidate[]> => mockQuery(db => db.candidates);
 
-export const registerCandidate = (input: RegistrationInput): Promise<RegistrationResult> =>
+export const registerCandidate = ({ password, ...input }: RegistrationInput): Promise<RegistrationResult> =>
   mockMutation(db => {
     const primaryDigits = phoneDigits(input.primaryPhone);
     const singaporePhone = input.singaporePhone?.trim() || undefined;
@@ -65,8 +66,24 @@ export const registerCandidate = (input: RegistrationInput): Promise<Registratio
     const candidate = singaporePhone ? createLead(registered) : registered;
 
     return {
-      db: { ...db, candidates: [...db.candidates, candidate] },
+      db: {
+        ...db,
+        candidates: [...db.candidates, candidate],
+        partnerAccounts: [...db.partnerAccounts, { candidateId: candidate.id, password }],
+      },
       result: { candidate, slot: candidate.slotId ? parseSlotId(candidate.slotId) : undefined },
+    };
+  });
+
+export const getPartnerStatus = (candidateId: string): Promise<PartnerStatus> =>
+  mockQuery(db => {
+    const candidate = findOrThrow(db.candidates, item => item.id === candidateId, API_ERROR.candidateNotFound);
+    const reservation = db.reservations.find(item => item.candidateId === candidateId);
+
+    return {
+      candidate,
+      slot: candidate.slotId ? parseSlotId(candidate.slotId) : undefined,
+      stage: getPartnerStage(candidate, reservation),
     };
   });
 

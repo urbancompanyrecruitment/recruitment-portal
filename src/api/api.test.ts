@@ -10,7 +10,7 @@ import {
   YesNo,
 } from '@/domain/interface';
 import { readDb, writeDb } from '@/mocks/db';
-import { signInRecruiter } from './auth';
+import { signInPartner, signInRecruiter } from './auth';
 import { importVerifiedCandidates, listCandidates, registerCandidate, updateSingaporePhone } from './candidates';
 import { API_ERROR } from './constant';
 import { RegistrationInput } from './interface';
@@ -30,6 +30,7 @@ import { listBookableSlotsFor } from './slots';
 const registration: RegistrationInput = {
   name: 'Test Partner',
   primaryPhone: '+95 9999 1234',
+  password: 'Partner123!',
   country: 'Myanmar',
   city: 'Yangon',
   nationality: 'Myanmar',
@@ -50,9 +51,22 @@ describe('candidates api', () => {
     const { candidate, slot } = await registerCandidate({ ...registration, slotId: firstSlot.id });
 
     expect(candidate).toMatchObject({ name: 'Test Partner', verified: false, primaryPhone: '+95 9999 1234' });
+    expect(candidate).not.toHaveProperty('password');
     expect(candidate.singaporePhone).toBeUndefined();
     expect(candidate.onboarding).toBeUndefined();
     expect(slot?.id).toBe(firstSlot.id);
+  });
+
+  it('gives the number to the first sign-up and lets only that partner sign in with their password', async () => {
+    const { candidate } = await registerCandidate(registration);
+
+    await expect(registerCandidate({ ...registration, password: 'Another123!' })).rejects.toThrow(API_ERROR.duplicatePhone);
+
+    const session = await signInPartner('+95-9999-1234', 'Partner123!');
+
+    expect(session).toMatchObject({ id: candidate.id, name: 'Test Partner', subtitle: '+95 9999 1234' });
+    await expect(signInPartner('+95 9999 1234', 'Another123!')).rejects.toThrow(API_ERROR.invalidPartnerCredentials);
+    await expect(signInPartner('+95 9999 0000', 'Partner123!')).rejects.toThrow(API_ERROR.invalidPartnerCredentials);
   });
 
   it('registers a partner with a Singapore number and creates the lead', async () => {

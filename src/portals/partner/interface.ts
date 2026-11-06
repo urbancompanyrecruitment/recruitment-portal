@@ -3,6 +3,8 @@ import { CookingFrequency, RecruitmentSource, YesNo } from '@/domain/interface';
 export interface RegistrationFormValues {
   name: string;
   primaryPhone: string;
+  password: string;
+  confirmPassword: string;
   singaporePhone?: string;
   country: string;
   city: string;
@@ -16,4 +18,9 @@ export interface RegistrationFormValues {
   consent: boolean;
   interviewCity: string;
   slotId?: string;
+}
+
+export interface PartnerLoginFormValues {
+  primaryPhone: string;
+  password: string;
 }

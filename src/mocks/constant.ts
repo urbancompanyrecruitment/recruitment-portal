@@ -1,4 +1,4 @@
-export const MOCK_DB_STORAGE_KEY = 'recruitment-portal-mock-db-v3';
+export const MOCK_DB_STORAGE_KEY = 'recruitment-portal-mock-db-v4';
 
 export const MOCK_LATENCY_MS = 120;
 

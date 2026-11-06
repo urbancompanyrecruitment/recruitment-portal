@@ -1,5 +1,6 @@
 import { environment } from '@/config';
 import { SessionUser, UserRole } from '@/domain/interface';
+import { phoneDigits } from '@/domain/phone';
 import { DEMO_PASSWORD } from '@/mocks/constant';
 import { deleteCookie, writeCookie } from '@/shared/utils/cookie';
 import { mockQuery } from './client';
@@ -28,6 +29,17 @@ export const signInWithGoogle = async (credential: string): Promise<SessionUser>
 };
 
 export const signOutBusiness = (): void => deleteCookie(TOKEN_COOKIE);
+
+export const signInPartner = (primaryPhone: string, password: string): Promise<SessionUser> =>
+  mockQuery(db => {
+    const digits = phoneDigits(primaryPhone);
+    const candidate = db.candidates.find(item => phoneDigits(item.primaryPhone) === digits);
+    const account = db.partnerAccounts.find(item => item.candidateId === candidate?.id);
+
+    if (!candidate || !account || account.password !== password) throw new Error(API_ERROR.invalidPartnerCredentials);
+
+    return { id: candidate.id, name: candidate.name, role: UserRole.Partner, subtitle: candidate.primaryPhone, accesses: [] };
+  });
 
 export const signInRecruiter = (loginId: string, password: string): Promise<SessionUser> =>
   mockQuery(db => {

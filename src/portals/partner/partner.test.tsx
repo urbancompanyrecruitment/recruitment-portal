@@ -3,15 +3,21 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { readDb } from '@/mocks/db';
 import { renderWithProviders } from '@/test/renderWithProviders';
-import { COPY_PRIMARY_LABEL, SINGAPORE_PHONE_ERROR, THANK_YOU } from './constant';
+import { DEMO_PASSWORD } from '@/mocks/constant';
+import { API_ERROR } from '@/api/constant';
+import { CONFIRM_PASSWORD_ERROR, COPY_PRIMARY_LABEL, PARTNER_LOGIN, PARTNER_STATUS, SINGAPORE_PHONE_ERROR, THANK_YOU } from './constant';
 import PartnerPortal from '.';
 
-const renderPartner = () =>
+const PASSWORD = 'Partner123!';
+
+const SUBMIT_LOGIN = /Sign in/;
+
+const renderPartner = (route = '/partner') =>
   renderWithProviders(
     <Routes>
       <Route path="/partner/*" element={<PartnerPortal />} />
     </Routes>,
-    { route: '/partner' },
+    { route },
   );
 
 const chooseOption = async (label: string, option: string) => {
@@ -28,6 +34,8 @@ const chooseFirstSlot = async () => {
 const fillDetails = async (primaryPhone: string) => {
   await userEvent.type(screen.getByLabelText('Full name'), 'Test Partner');
   await userEvent.type(screen.getByLabelText('Primary mobile number'), primaryPhone);
+  await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
+  await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);
   await chooseOption('Current country', 'Singapore');
   await userEvent.type(screen.getByLabelText('Current city'), 'Singapore');
   await chooseOption('Nationality', 'Myanmar');
@@ -53,16 +61,59 @@ describe('partner portal', () => {
     expect(screen.getByText(/seats left/)).toBeInTheDocument();
   });
 
-  it('validates the primary number, the Singapore number and consent', async () => {
+  it('validates the primary number, the Singapore number, the password and consent', async () => {
     renderPartner();
 
     await userEvent.type(screen.getByLabelText('Primary mobile number'), '91234567');
     await userEvent.type(screen.getByLabelText('Singapore mobile number (optional)'), '+65 1234');
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
+    await userEvent.type(screen.getByLabelText('Confirm password'), 'different');
     await userEvent.click(screen.getByRole('button', { name: /Complete registration/ }));
 
     expect(await screen.findByText('Use + and country code, e.g. +65 9123 4567')).toBeInTheDocument();
     expect(await screen.findByText(SINGAPORE_PHONE_ERROR)).toBeInTheDocument();
+    expect(await screen.findByText(CONFIRM_PASSWORD_ERROR)).toBeInTheDocument();
     expect(await screen.findByText('Consent is required to register')).toBeInTheDocument();
+  });
+
+  it('lets the partner sign in with the number and password chosen at sign-up to see their status', async () => {
+    renderPartner();
+
+    await fillDetails('+95 9876 0000');
+    await userEvent.click(screen.getByRole('button', { name: /Complete registration/ }));
+    await userEvent.click(await screen.findByRole('button', { name: THANK_YOU.checkStatus }));
+
+    expect(await screen.findByText(PARTNER_LOGIN.title)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(PARTNER_LOGIN.phoneLabel), '+95 9876 0000');
+    await userEvent.type(screen.getByLabelText(PARTNER_LOGIN.passwordLabel), 'wrong-password');
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT_LOGIN }));
+
+    expect(await screen.findByText(API_ERROR.invalidPartnerCredentials)).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText(PARTNER_LOGIN.passwordLabel));
+    await userEvent.type(screen.getByLabelText(PARTNER_LOGIN.passwordLabel), PASSWORD);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT_LOGIN }));
+
+    expect(await screen.findByText(PARTNER_STATUS.title)).toBeInTheDocument();
+    expect(screen.getAllByText('Test Partner')).toHaveLength(2);
+    expect(screen.getByText('+95 9876 0000')).toBeInTheDocument();
+    expect(screen.getByText(PARTNER_STATUS.singaporeMissing)).toBeInTheDocument();
+    expect(screen.getByText('UC Tampines Centre, Tampines')).toBeInTheDocument();
+  }, 30000);
+
+  it('shows a verified seeded partner at the verified stage and redirects anonymous visitors to login', async () => {
+    renderPartner('/partner/status');
+
+    expect(await screen.findByText(PARTNER_LOGIN.title)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(PARTNER_LOGIN.phoneLabel), '+65 9000 0001');
+    await userEvent.type(screen.getByLabelText(PARTNER_LOGIN.passwordLabel), DEMO_PASSWORD);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT_LOGIN }));
+
+    expect(await screen.findByText(PARTNER_STATUS.stages[1].title)).toBeInTheDocument();
+    expect(screen.getAllByText('Thandar Aung')).toHaveLength(2);
+    expect(screen.getByText(PARTNER_STATUS.stages[1].title).closest('.ant-steps-item')).toHaveClass('ant-steps-item-process');
   });
 
   it('offers to reuse a Singapore primary number and creates the onboarding lead', async () => {

@@ -10,7 +10,7 @@ import {
   ReservationEventType,
   YesNo,
 } from '@/domain/interface';
-import { HOUR_MS, MOCK_LEAD_ID_PREFIX, VERIFIED_BY_IMPORT } from './constant';
+import { DEMO_PASSWORD, HOUR_MS, MOCK_LEAD_ID_PREFIX, VERIFIED_BY_IMPORT } from './constant';
 import { MockDb } from './interface';
 
 export const createSeedDb = (now = dayjs()): MockDb => {
@@ -52,6 +52,7 @@ export const createSeedDb = (now = dayjs()): MockDb => {
 
   return {
     candidates,
+    partnerAccounts: candidates.map(candidate => ({ candidateId: candidate.id, password: DEMO_PASSWORD })),
     recruiters: [
       { id: 'r-a', name: 'Alex Morgan', company: 'BrightPath Recruitment', loginId: 'recruiter.a', active: true },
       { id: 'r-b', name: 'Jamie Lee', company: 'Horizon Recruitment', loginId: 'recruiter.b', active: true },

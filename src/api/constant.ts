@@ -9,6 +9,7 @@ export const QUERY_KEY = {
   availableCandidates: ['available-candidates'],
   myReservations: (recruiterId: string) => ['my-reservations', recruiterId],
   candidateProfile: (candidateId: string, recruiterId: string) => ['candidate-profile', candidateId, recruiterId],
+  partnerStatus: (candidateId: string) => ['partner-status', candidateId],
   currentUser: ['current-user'],
 } as const;
 
@@ -29,7 +30,8 @@ export const API_ERROR = {
   aggregatorNotFound: 'Aggregator not found.',
   reservationNotFound: 'This profile is not locked by you. It may have expired.',
   lockExpired: 'Your lock on this profile has expired. It is back in the pool.',
-  duplicatePhone: 'This primary mobile number is already registered.',
+  duplicatePhone: 'This primary mobile number is already registered. If it is yours, sign in with your password.',
+  invalidPartnerCredentials: 'Check your primary mobile number and password.',
   invalidSingaporePhone: 'Enter a valid Singapore mobile number (+65 8xxx xxxx or 9xxx xxxx).',
   unknownCity: 'Choose one of the listed interview cities.',
   slotUnavailable: 'That slot is in the past, full or not offered. Choose another slot.',

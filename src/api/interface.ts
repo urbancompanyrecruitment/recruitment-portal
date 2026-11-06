@@ -3,6 +3,7 @@ import {
   CookingFrequency,
   ImportRowOutcome,
   InterviewSlot,
+  PartnerStage,
   RecruitmentSource,
   Reservation,
   YesNo,
@@ -40,6 +41,7 @@ export interface DashboardUser {
 export interface RegistrationInput {
   name: string;
   primaryPhone: string;
+  password: string;
   singaporePhone?: string;
   country: string;
   city: string;
@@ -58,6 +60,12 @@ export interface RegistrationInput {
 export interface RegistrationResult {
   candidate: Candidate;
   slot?: InterviewSlot;
+}
+
+export interface PartnerStatus {
+  candidate: Candidate;
+  slot?: InterviewSlot;
+  stage: PartnerStage;
 }
 
 export interface BookableSlot extends InterviewSlot {

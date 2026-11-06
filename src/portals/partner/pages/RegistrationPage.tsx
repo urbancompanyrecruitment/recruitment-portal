@@ -20,6 +20,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { registerCandidate } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
 import { RegistrationResult } from '@/api/interface';
@@ -30,6 +31,7 @@ import {
   DAY_DATE_FORMAT,
   MAX_PARTNER_AGE,
   MIN_PARTNER_AGE,
+  PASSWORD_MIN_LENGTH,
   PHONE_PATTERN,
   RECRUITMENT_SOURCES,
   SINGAPORE_INTERVIEW_CITIES,
@@ -42,9 +44,13 @@ import { getInterviewCity } from '@/domain/slot';
 import { Notice, PageHeader } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import {
+  CONFIRM_PASSWORD_ERROR,
   CONSENT_PENDING_NOTE,
   CONSENT_TEXT,
   COPY_PRIMARY_LABEL,
+  PARTNER_ROUTE,
+  PASSWORD_ERROR,
+  PASSWORD_HINT,
   PRIMARY_PHONE_ERROR,
   PRIMARY_PHONE_HINT,
   REGISTRATION_SUCCESS_MESSAGE,
@@ -58,6 +64,7 @@ import { RegistrationFormValues } from '../interface';
 
 export const RegistrationPage = () => {
   const [form] = Form.useForm<RegistrationFormValues>();
+  const navigate = useNavigate();
   const [registration, setRegistration] = useState<RegistrationResult>();
   const [copyPrimary, setCopyPrimary] = useState(false);
   const interviewCity = Form.useWatch('interviewCity', form);
@@ -87,15 +94,20 @@ export const RegistrationPage = () => {
           title={THANK_YOU.title}
           subTitle={THANK_YOU.subtitle}
           extra={
-            <Button
-              onClick={() => {
-                setRegistration(undefined);
-                setCopyPrimary(false);
-                form.resetFields();
-              }}
-            >
-              {THANK_YOU.registerAnother}
-            </Button>
+            <Flex gap={10} justify="center" wrap>
+              <Button type="primary" onClick={() => navigate(PARTNER_ROUTE.login)}>
+                {THANK_YOU.checkStatus}
+              </Button>
+              <Button
+                onClick={() => {
+                  setRegistration(undefined);
+                  setCopyPrimary(false);
+                  form.resetFields();
+                }}
+              >
+                {THANK_YOU.registerAnother}
+              </Button>
+            </Flex>
           }
         >
           <Descriptions
@@ -142,7 +154,7 @@ export const RegistrationPage = () => {
 
           if ('primaryPhone' in changed && copyPrimary) form.setFieldValue('singaporePhone', changed.primaryPhone);
         }}
-        onFinish={values => register.mutate(values, { onSuccess: setRegistration })}
+        onFinish={({ confirmPassword, ...values }) => register.mutate(values, { onSuccess: setRegistration })}
       >
         <Row gutter={[23, 23]}>
           <Col xs={24} lg={13}>
@@ -187,6 +199,32 @@ export const RegistrationPage = () => {
                       </Checkbox>
                     </Form.Item>
                   )}
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="password"
+                    label="Password"
+                    extra={PASSWORD_HINT}
+                    rules={[{ required: true, message: PASSWORD_ERROR }, { min: PASSWORD_MIN_LENGTH, message: PASSWORD_ERROR }]}
+                  >
+                    <Input.Password autoComplete="new-password" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="confirmPassword"
+                    label="Confirm password"
+                    dependencies={['password']}
+                    rules={[
+                      { required: true, message: CONFIRM_PASSWORD_ERROR },
+                      ({ getFieldValue }) => ({
+                        validator: (_, value) =>
+                          value === getFieldValue('password') ? Promise.resolve() : Promise.reject(new Error(CONFIRM_PASSWORD_ERROR)),
+                      }),
+                    ]}
+                  >
+                    <Input.Password autoComplete="new-password" />
+                  </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="country" label="Current country" rules={[{ required: true }]}>

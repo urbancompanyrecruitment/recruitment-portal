@@ -4,7 +4,7 @@ Front end for the partner recruitment & onboarding product (PRD: "Recruitment an
 
 | Area | Route | Who | Login |
 |---|---|---|---|
-| Partner registration | `/partner` | Cleaners signing up | None yet — one public form and a thank-you screen. Phone-number (OTP) login is proposed in the tech design and not built |
+| Partner | `/partner` | Cleaners signing up | Primary mobile number + password chosen at sign-up (first come, first served; the number is not verified). Logged-in partners see their status |
 | Recruiter | `/recruiter` | Approved external recruiters | Mocked (demo accounts) until the backend defines recruiter credentials |
 | Business (admin) | `/business` | UC business team | UC Google sign-in through `internal-dashboards`, like the ops/configs dashboards |
 
@@ -12,7 +12,7 @@ The trainer flow is built separately and is not part of this app.
 
 ## The flow this UI implements
 
-1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). They pick an **interview city** (fixed list of Singapore cities in `SINGAPORE_INTERVIEW_CITIES`) and an **hourly slot** and see a thank-you screen; the business team contacts them from there.
+1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number owns it; nobody can register it again. They pick an **interview city** (fixed list of Singapore cities in `SINGAPORE_INTERVIEW_CITIES`) and an **hourly slot** and see a thank-you screen; the business team contacts them from there.
 2. **Slots are generated, not published.** `domain/slot.ts` builds one-hour slots from 08:00 to 18:00 (Asia/Singapore) for today and the next two days in every interview city, keeps only start times in the future, and subtracts bookings from a fixed capacity. Slot ids are deterministic (`<city>_<date>_<HH:mm>`), so only bookings are stored.
 3. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), a lead is created in `provider-onboarding-service` and the partner enters the unapproved-partner journey. Mocked here as `candidate.onboarding.leadId`.
 4. **Export.** Admins download signed-up partners as CSV: `Name, Location, Primary mobile`.
@@ -22,7 +22,7 @@ The trainer flow is built separately and is not part of this app.
 
 ## Status
 
-UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage` (key `recruitment-portal-mock-db-v3`), so an action in one area shows up in the others. No WhatsApp/Hireflix call and no real `provider-onboarding-service` call is made. The backend is a new service with a relational (MySQL) schema, still being designed; `src/api/*` is the seam where its endpoints plug in.
+UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage` (key `recruitment-portal-mock-db-v4`), so an action in one area shows up in the others. No WhatsApp/Hireflix call and no real `provider-onboarding-service` call is made. The backend is a new service with a relational (MySQL) schema, still being designed; `src/api/*` is the seam where its endpoints plug in.
 
 ## Run
 
@@ -37,6 +37,7 @@ npm start          # serve dist/ the way the Docker image does (port 3005)
 
 - Business area: click **Sign in with Google** with your `urbancompany.com` / `urbanclap.com` account. Development mode talks to `dev-ops.urbanclap.com`.
 - Recruiter area: `recruiter.a` or `recruiter.b`, password `Demo123!` (mock).
+- Partner status: `/partner/login` with any seeded primary number (e.g. `+65 9000 0001`) and password `Demo123!`, or a number you registered yourself.
 - `/` lists the areas and has a "Reset sample data" button.
 
 Port 9009 is the port the ops dashboard uses locally, so it is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console.
@@ -55,7 +56,7 @@ src/
   domain/         pure business rules + shared types, no React or I/O
                   phone.ts (Singapore number rules), reservation.ts (lock state), funnel.ts, slot.ts (generated hourly slots per city)
   api/            the only layer the UI calls: one file per resource
-                  auth.ts (real Google login + mocked recruiter login), http.ts (bearer token, envelope, 401)
+                  auth.ts (real Google login + mocked partner and recruiter logins), http.ts (bearer token, envelope, 401)
                   candidates.ts (sign-up, Singapore number, verified import), reservations.ts (locks, placements, cleanup)
                   slots.ts (bookable slots per city, slot occupancy per day), people.ts (recruiters, aggregators)
   mocks/          seed data + localStorage "database" (delete when the backend lands)
@@ -79,7 +80,7 @@ Business-team login follows the pattern every UC dashboard uses (`dashboard-oper
 
 **Recruiters** are external users: the Google flow rejects non-UC domains and the email/password strategy in `internal-dashboards` is disabled outside development. Their credential system belongs to the new backend; until then `signInRecruiter` is a mock against the seed data.
 
-**Partners** are the public; the registration form needs no login today. The tech design proposes an OTP login on the primary mobile number so a partner can check their status; it is not built in this mock.
+**Partners** set a password at sign-up and sign in with their primary mobile number to see their status (`/partner/login` → `/partner/status`). The number is never verified: whoever registers it first owns it. The mock keeps passwords in `partnerAccounts` next to the seed data; the backend stores an argon2id hash and resets are done by admins.
 
 ## Hosting
 
@@ -104,7 +105,7 @@ Things the backend must own: the `provider-onboarding-service` calls (`createLea
 ## Open questions from the PRD
 
 - Recruiter credentials for external users (see Authentication).
-- Partner login: OTP over WhatsApp/SMS on the primary number, channel for non-Singapore numbers, session length.
+- Partner password reset: the number is not verified, so there is no self-service reset; an admin-issued temporary password is assumed.
 - Final list of interview cities, centre addresses and capacity per hourly slot (4 in the mock).
 - Lock window length (48h in the mock) and whether a recruiter can re-lock a partner they let expire.
 - Category, city and source values sent to `createLead`.

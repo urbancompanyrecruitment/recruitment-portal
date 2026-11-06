@@ -2,7 +2,8 @@ import dayjs from 'dayjs';
 import { createSeedDb } from '@/mocks/seed';
 import { LOCK_EXPIRED_LABEL, SINGAPORE_INTERVIEW_CITIES, SLOT_CAPACITY } from './constant';
 import { buildChannelFunnel } from './funnel';
-import { InactiveReason, LockState, RecruitmentSource, ReservationStatus } from './interface';
+import { InactiveReason, LockState, PartnerStage, RecruitmentSource, ReservationStatus } from './interface';
+import { getPartnerStage } from './partner';
 import { isSingaporePhone, isValidSingaporePhone, phoneDigits } from './phone';
 import {
   blocksAvailability,
@@ -61,6 +62,20 @@ describe('lock rules', () => {
     expect(isJoiningWithinNoticeWindow({ ...placed, startDate: '2026-11-05' }, today)).toBe(true);
     expect(isJoiningWithinNoticeWindow({ ...placed, startDate: '2026-11-20' }, today)).toBe(false);
     expect(isJoiningWithinNoticeWindow({ ...active, startDate: '2026-11-05' }, today)).toBe(false);
+  });
+});
+
+describe('partner stage', () => {
+  it('derives the stage from verification and placement', () => {
+    const registered = seed.candidates.find(candidate => candidate.id === 'c8')!;
+    const verified = seed.candidates.find(candidate => candidate.id === 'c1')!;
+    const placement = seed.reservations.find(reservation => reservation.candidateId === 'c5')!;
+    const lock = seed.reservations.find(reservation => reservation.candidateId === 'c6')!;
+
+    expect(getPartnerStage(registered)).toBe(PartnerStage.Registered);
+    expect(getPartnerStage(verified)).toBe(PartnerStage.Verified);
+    expect(getPartnerStage(verified, lock)).toBe(PartnerStage.Verified);
+    expect(getPartnerStage(verified, placement)).toBe(PartnerStage.Placed);
   });
 });
 

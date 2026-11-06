@@ -78,6 +78,8 @@ export const MIN_PARTNER_AGE = 18;
 
 export const MAX_PARTNER_AGE = 80;
 
+export const PASSWORD_MIN_LENGTH = 8;
+
 export const PHONE_PATTERN = /^\+[0-9][0-9\s()-]{6,18}$/;
 
 export const SINGAPORE_DIAL_CODE = '+65';

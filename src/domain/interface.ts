@@ -30,8 +30,15 @@ export enum YesNo {
 }
 
 export enum UserRole {
+  Partner = 'partner',
   Recruiter = 'recruiter',
   Business = 'business',
+}
+
+export enum PartnerStage {
+  Registered = 'registered',
+  Verified = 'verified',
+  Placed = 'placed',
 }
 
 export enum LockState {
@@ -114,6 +121,11 @@ export interface Candidate {
   verifiedBy?: string;
   verifiedAt?: string;
   createdAt: string;
+}
+
+export interface PartnerAccount {
+  candidateId: string;
+  password: string;
 }
 
 export interface Recruiter {
