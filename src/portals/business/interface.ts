@@ -22,16 +22,6 @@ export interface EventTagStyle {
   color?: string;
 }
 
-export interface SlotFormValues {
-  trainerId: string;
-  date: Dayjs;
-  time: Dayjs;
-  capacity: number;
-  centre: string;
-  address: string;
-  instructions: string;
-}
-
 export interface HubFormValues {
   hub: string;
   startDate: Dayjs;

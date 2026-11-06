@@ -1,4 +1,4 @@
-import { CookingFrequency, Geography, RecruitmentSource, YesNo } from '@/domain/interface';
+import { CookingFrequency, RecruitmentSource, YesNo } from '@/domain/interface';
 
 export interface RegistrationFormValues {
   name: string;
@@ -14,6 +14,6 @@ export interface RegistrationFormValues {
   cookingFrequency: CookingFrequency;
   deepCleaningExperience: YesNo;
   consent: boolean;
-  interviewGeography: Geography;
+  interviewCity: string;
   slotId?: string;
 }

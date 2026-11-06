@@ -21,13 +21,19 @@ import {
 import dayjs, { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { importVerifiedCandidates, updateSingaporePhone } from '@/api/candidates';
-import { useAggregators, useCandidates, useRecruiters, useReservations, useSlots, useTrainers } from '@/api/hooks';
-import { ImportRow, VerifiedImportResult } from '@/api/interface';
-import { DATE_FORMAT, DAY_DATE_FORMAT, GEOGRAPHIES, RECRUITMENT_SOURCES, SINGAPORE_PHONE_PATTERN } from '@/domain/constant';
+import { useAggregators, useCandidates, useRecruiters, useReservations, useUpcomingSlotDays } from '@/api/hooks';
+import { ImportRow, SlotDaySummary, VerifiedImportResult } from '@/api/interface';
+import {
+  DATE_FORMAT,
+  DAY_DATE_FORMAT,
+  RECRUITMENT_SOURCES,
+  SINGAPORE_INTERVIEW_CITIES,
+  SINGAPORE_PHONE_PATTERN,
+} from '@/domain/constant';
 import { toIsoDate } from '@/domain/format';
 import { buildChannelFunnel } from '@/domain/funnel';
-import { Candidate, ChannelFunnelRow, Geography, ImportRowOutcome, InterviewSlot, RecruitmentSource } from '@/domain/interface';
-import { countSlotBookings, formatSlot } from '@/domain/slot';
+import { Candidate, ChannelFunnelRow, ImportRowOutcome, RecruitmentSource } from '@/domain/interface';
+import { formatSlot, getInterviewCity, parseSlotId } from '@/domain/slot';
 import { Notice, PageHeader, StatTile, VerificationTag } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { downloadCsv, parseCsvColumn } from '@/shared/utils/csv';
@@ -46,6 +52,7 @@ import {
   SIGNUP_EXPORT_HEADERS,
   SINGAPORE_PHONE_NOTE,
   SINGAPORE_PHONE_RULE_MESSAGE,
+  SLOT_SCHEDULE_NOTE,
   TABLE_PAGE_SIZE,
   VERIFIED_CSV_COLUMN,
   VERIFIED_CSV_NOTE,
@@ -56,12 +63,11 @@ import { toPercent } from '../utils';
 export const OverviewPage = () => {
   const [phoneForm] = Form.useForm<SingaporePhoneFormValues>();
   const { data: candidates = [], isLoading } = useCandidates();
-  const { data: slots = [], isLoading: slotsLoading } = useSlots();
-  const { data: trainers = [] } = useTrainers();
+  const { data: slotDays = [], isLoading: slotsLoading } = useUpcomingSlotDays();
   const { data: recruiters = [] } = useRecruiters();
   const { data: aggregators = [] } = useAggregators();
   const { data: reservations = [] } = useReservations();
-  const [geography, setGeography] = useState<Geography>();
+  const [cityKey, setCityKey] = useState<string>();
   const [source, setSource] = useState<RecruitmentSource>();
   const [weekStart, setWeekStart] = useState<Dayjs>(() => dayjs().subtract(FUNNEL_DEFAULT_OFFSET_DAYS, 'day'));
   const [editing, setEditing] = useState<Candidate>();
@@ -75,14 +81,14 @@ export const OverviewPage = () => {
     BUSINESS_MESSAGE.importCompleted,
   );
 
+  const cityName = (key: string) => getInterviewCity(key)?.name ?? key;
   const filteredCandidates = candidates.filter(
-    candidate =>
-      (!geography || candidate.interviewGeography === geography) && (!source || candidate.source === source),
+    candidate => (!cityKey || candidate.interviewCity === cityKey) && (!source || candidate.source === source),
   );
 
   const rows: TrackerRow[] = filteredCandidates
     .map(candidate => {
-      const slot = slots.find(item => item.id === candidate.slotId);
+      const slot = candidate.slotId ? parseSlotId(candidate.slotId) : undefined;
       const reservation = reservations.find(item => item.candidateId === candidate.id);
 
       return {
@@ -103,13 +109,13 @@ export const OverviewPage = () => {
 
     return { label: step.label, count, percent: toPercent(count, rows.length) };
   });
-  const signupsByGeography = GEOGRAPHIES.map(item => {
-    const count = rows.filter(row => row.candidate.interviewGeography === item).length;
+  const signupsByCity = SINGAPORE_INTERVIEW_CITIES.map(city => {
+    const count = rows.filter(row => row.candidate.interviewCity === city.key).length;
 
-    return { geography: item, count, percent: toPercent(count, rows.length) };
+    return { city, count, percent: toPercent(count, rows.length) };
   });
   const channelFunnel = buildChannelFunnel(filteredCandidates, reservations, toIsoDate(weekStart));
-  const interviewSlots = slots.filter(slot => !geography || slot.geography === geography);
+  const upcomingDays = slotDays.filter(day => !cityKey || day.cityKey === cityKey);
   const failedRows = importResult?.rows.filter(row => row.outcome !== ImportRowOutcome.Accepted) ?? [];
 
   const trackerColumns: TableColumnsType<TrackerRow> = [
@@ -124,11 +130,11 @@ export const OverviewPage = () => {
       ),
     },
     {
-      title: 'Geography / slot',
+      title: 'Interview city / slot',
       key: 'slot',
       render: (_, { candidate, slotLabel }) => (
         <>
-          <div>{candidate.interviewGeography}</div>
+          <div>{cityName(candidate.interviewCity)}</div>
           <div className="muted small">{slotLabel}</div>
         </>
       ),
@@ -196,35 +202,20 @@ export const OverviewPage = () => {
     { title: 'Conversion %', key: 'conversion', render: (_, row) => `${row.conversion}%` },
   ];
 
-  const interviewColumns: TableColumnsType<InterviewSlot> = [
-    { title: 'Date', key: 'date', render: (_, slot) => dayjs(slot.date).format(DAY_DATE_FORMAT) },
+  const slotDayColumns: TableColumnsType<SlotDaySummary> = [
+    { title: 'Date', key: 'date', render: (_, day) => dayjs(day.date).format(DAY_DATE_FORMAT) },
     {
-      title: 'Time / geography',
-      key: 'time',
-      render: (_, slot) => (
+      title: 'City / centre',
+      key: 'city',
+      render: (_, day) => (
         <>
-          <div>
-            {slot.time} · {slot.timeZone}
-          </div>
-          <div className="muted small">{slot.geography}</div>
+          <div>{cityName(day.cityKey)}</div>
+          <div className="muted small">{getInterviewCity(day.cityKey)?.centre}</div>
         </>
       ),
     },
-    {
-      title: 'Trainer',
-      key: 'trainer',
-      render: (_, slot) => trainers.find(trainer => trainer.id === slot.trainerId)?.name ?? EMPTY_VALUE,
-    },
-    {
-      title: 'Bookings',
-      key: 'bookings',
-      render: (_, slot) => (
-        <Flex gap={8} align="center">
-          {countSlotBookings(candidates, slot.id)} / {slot.capacity}
-          {!slot.isOpen && <Tag>Closed</Tag>}
-        </Flex>
-      ),
-    },
+    { title: 'Slots left today', dataIndex: 'slots', key: 'slots' },
+    { title: 'Booked / capacity', key: 'booked', render: (_, day) => `${day.booked} / ${day.capacity}` },
   ];
 
   return (
@@ -239,12 +230,12 @@ export const OverviewPage = () => {
             <Flex gap={12} wrap>
               <Select
                 allowClear
-                aria-label="Filter by geography"
-                placeholder="All geographies"
+                aria-label="Filter by interview city"
+                placeholder="All interview cities"
                 className="business-filter"
-                value={geography}
-                onChange={setGeography}
-                options={GEOGRAPHIES.map(item => ({ value: item, label: item }))}
+                value={cityKey}
+                onChange={setCityKey}
+                options={SINGAPORE_INTERVIEW_CITIES.map(city => ({ value: city.key, label: city.name }))}
               />
               <Select
                 allowClear
@@ -363,11 +354,11 @@ export const OverviewPage = () => {
             </Card>
           </Col>
           <Col xs={24} lg={9}>
-            <Card title="Signups by geography" style={{ height: '100%' }}>
+            <Card title="Signups by interview city" style={{ height: '100%' }}>
               <Flex vertical gap={10}>
-                {signupsByGeography.map(item => (
-                  <Flex key={item.geography} justify="space-between" align="center" className="business-geo-tile">
-                    <span>{item.geography}</span>
+                {signupsByCity.map(item => (
+                  <Flex key={item.city.key} justify="space-between" align="center" className="business-geo-tile">
+                    <span>{item.city.name}</span>
                     <Flex align="baseline" gap={6}>
                       <span className="business-geo-count">{item.count}</span>
                       <span className="muted small">{item.percent}%</span>
@@ -418,15 +409,16 @@ export const OverviewPage = () => {
           />
         </Card>
 
-        <Card title="Interviews by day" styles={{ body: { padding: 0 } }}>
+        <Card title="Upcoming interview slots">
+          <Notice>{SLOT_SCHEDULE_NOTE}</Notice>
           <Table
-            rowKey="id"
-            columns={interviewColumns}
-            dataSource={interviewSlots}
+            rowKey={day => `${day.date}-${day.cityKey}`}
+            columns={slotDayColumns}
+            dataSource={upcomingDays}
             loading={slotsLoading}
-            pagination={{ pageSize: TABLE_PAGE_SIZE, hideOnSinglePage: true }}
+            pagination={false}
             scroll={{ x: 'max-content' }}
-            locale={{ emptyText: 'No interview sessions published.' }}
+            locale={{ emptyText: 'No upcoming slots.' }}
           />
         </Card>
       </Flex>

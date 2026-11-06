@@ -20,6 +20,11 @@ const chooseOption = async (label: string, option: string) => {
   fireEvent.click(await within(dropdowns[dropdowns.length - 1]).findByTitle(option));
 };
 
+const chooseFirstSlot = async () => {
+  const [firstSlot] = await screen.findAllByRole('radio', { name: /^\d{2}:00$/ });
+  fireEvent.click(firstSlot);
+};
+
 const fillDetails = async (primaryPhone: string) => {
   await userEvent.type(screen.getByLabelText('Full name'), 'Test Partner');
   await userEvent.type(screen.getByLabelText('Primary mobile number'), primaryPhone);
@@ -31,20 +36,21 @@ const fillDetails = async (primaryPhone: string) => {
   fireEvent.click(screen.getAllByRole('radio', { name: 'Yes' })[0]);
   fireEvent.click(screen.getAllByRole('radio', { name: 'No' })[1]);
   await chooseOption('How often did you cook in previous work?', 'Daily');
-  await chooseOption('Country / route you want to interview in', 'Singapore');
-  await userEvent.click((await screen.findAllByText(/seats left/))[0]);
+  await chooseOption('Interview city', 'Tampines');
+  await chooseFirstSlot();
   await userEvent.click(screen.getByRole('checkbox', { name: /I consent/ }));
 };
 
 describe('partner portal', () => {
-  it('shows centre details for the chosen interview slot', async () => {
+  it('shows hourly slots for the chosen city and the centre details', async () => {
     renderPartner();
 
-    await chooseOption('Country / route you want to interview in', 'Myanmar');
-    await userEvent.click(await screen.findByText(/seats left/));
+    await chooseOption('Interview city', 'Jurong East');
+    await chooseFirstSlot();
 
-    expect(await screen.findByText('UC Yangon Training Centre', { selector: 'h4' })).toBeInTheDocument();
-    expect(screen.getByText(/Kamayut Township/)).toBeInTheDocument();
+    expect(await screen.findByText('UC Jurong East Centre', { selector: 'h4' })).toBeInTheDocument();
+    expect(screen.getByText(/Jurong Gateway Road/)).toBeInTheDocument();
+    expect(screen.getByText(/seats left/)).toBeInTheDocument();
   });
 
   it('validates the primary number, the Singapore number and consent', async () => {
@@ -72,12 +78,12 @@ describe('partner portal', () => {
 
     expect(await screen.findByText(THANK_YOU.title)).toBeInTheDocument();
     expect(screen.getByText(THANK_YOU.onboardingNote)).toBeInTheDocument();
-    expect(screen.getByText('UC Singapore Training Centre')).toBeInTheDocument();
-    expect(screen.queryByText(/Simulate L1/)).not.toBeInTheDocument();
+    expect(screen.getByText('UC Tampines Centre, Tampines')).toBeInTheDocument();
     await waitFor(() => {
       const saved = readDb().candidates.find(candidate => candidate.name === 'Test Partner');
       expect(saved?.singaporePhone).toBe('+65 9876 5432');
       expect(saved?.onboarding?.leadId).toMatch(/^lead-/);
+      expect(saved?.slotId).toMatch(/^tampines_\d{4}-\d{2}-\d{2}_\d{2}:00$/);
     });
   }, 20000);
 

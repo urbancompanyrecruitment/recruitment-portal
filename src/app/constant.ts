@@ -2,7 +2,7 @@ export const PORTALS = [
   {
     path: '/partner',
     title: 'Partner registration',
-    description: 'Public sign-up for cleaners: details, primary and Singapore mobile numbers, interview slot. No login.',
+    description: 'Public sign-up for cleaners: details, primary and Singapore mobile numbers, interview city and hourly slot.',
   },
   {
     path: '/recruiter',

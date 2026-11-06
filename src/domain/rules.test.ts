@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
 import { createSeedDb } from '@/mocks/seed';
-import { LOCK_EXPIRED_LABEL } from './constant';
+import { LOCK_EXPIRED_LABEL, SINGAPORE_INTERVIEW_CITIES, SLOT_CAPACITY } from './constant';
 import { buildChannelFunnel } from './funnel';
-import { Geography, InactiveReason, LockState, RecruitmentSource, ReservationStatus } from './interface';
+import { InactiveReason, LockState, RecruitmentSource, ReservationStatus } from './interface';
 import { isSingaporePhone, isValidSingaporePhone, phoneDigits } from './phone';
 import {
   blocksAvailability,
@@ -13,7 +13,7 @@ import {
   isLockActive,
   isLockExpired,
 } from './reservation';
-import { countSlotBookings, formatSlot, listBookableSlots } from './slot';
+import { countSlotBookings, formatSlot, generateSlots, listBookableSlots, parseSlotId } from './slot';
 import { getInitials } from './format';
 
 const now = dayjs('2026-10-27T10:00:00');
@@ -77,27 +77,32 @@ describe('phone rules', () => {
 });
 
 describe('slot rules', () => {
-  it('counts bookings per slot', () => {
-    expect(countSlotBookings(seed.candidates, 's7')).toBe(1);
+  it('generates hourly slots per city for today and the next two days, future starts only', () => {
+    const slots = generateSlots(now);
+    const tampines = slots.filter(slot => slot.cityKey === 'tampines');
+
+    expect(slots).toHaveLength(SINGAPORE_INTERVIEW_CITIES.length * (7 + 10 + 10));
+    expect(tampines.map(slot => slot.date + ' ' + slot.time).slice(0, 2)).toEqual(['2026-10-27 11:00', '2026-10-27 12:00']);
+    expect(tampines.at(-1)).toMatchObject({ date: '2026-10-29', time: '17:00', capacity: SLOT_CAPACITY });
+    expect(tampines[0].id).toBe('tampines_2026-10-27_11:00');
   });
 
-  it('lists only open, future, non-full slots for the geography in time order', () => {
-    const singapore = listBookableSlots(seed.slots, seed.candidates, Geography.Singapore, today);
+  it('counts bookings per slot and hides full slots', () => {
+    const slotId = 'tampines_2026-10-28_09:00';
+    const booked = Array.from({ length: SLOT_CAPACITY }, (_, index) => ({ ...seed.candidates[0], id: `b${index}`, slotId }));
 
-    expect(singapore.map(slot => slot.id)).toEqual(['s7', 's1', 's2']);
-    expect(listBookableSlots(seed.slots, seed.candidates, Geography.Myanmar, today).map(slot => slot.id)).toEqual(['s3']);
+    expect(countSlotBookings(booked, slotId)).toBe(SLOT_CAPACITY);
+    expect(listBookableSlots('tampines', booked, now).map(slot => slot.id)).not.toContain(slotId);
+    expect(listBookableSlots('tampines', seed.candidates, now).map(slot => slot.id)).toContain(slotId);
+    expect(listBookableSlots('nowhere', seed.candidates, now)).toEqual([]);
   });
 
-  it('hides full and closed slots', () => {
-    const fullSlot = seed.slots.map(slot => (slot.id === 's7' ? { ...slot, capacity: 1 } : slot));
-    const closedSlot = seed.slots.map(slot => (slot.id === 's1' ? { ...slot, isOpen: false } : slot));
+  it('parses and formats slot ids', () => {
+    const slot = parseSlotId('bedok_2026-10-30_14:00')!;
 
-    expect(listBookableSlots(fullSlot, seed.candidates, Geography.Singapore, today).map(slot => slot.id)).not.toContain('s7');
-    expect(listBookableSlots(closedSlot, seed.candidates, Geography.Singapore, today).map(slot => slot.id)).not.toContain('s1');
-  });
-
-  it('formats a slot with day, time and time zone', () => {
-    expect(formatSlot(seed.slots.find(slot => slot.id === 's1')!)).toBe('Fri, 30 Oct 2026 · 09:30 · Asia/Singapore');
+    expect(slot).toMatchObject({ cityKey: 'bedok', date: '2026-10-30', time: '14:00' });
+    expect(formatSlot(slot)).toBe('Fri, 30 Oct 2026 · 14:00 · Asia/Singapore');
+    expect(parseSlotId('broken')).toBeUndefined();
   });
 });
 

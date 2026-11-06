@@ -13,7 +13,6 @@ import { LoginPage } from './pages/LoginPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { PlacementsPage } from './pages/PlacementsPage';
 import { RecruitersPage } from './pages/RecruitersPage';
-import { TrainersPage } from './pages/TrainersPage';
 import './business.css';
 
 const BusinessPortal = () => (
@@ -40,7 +39,6 @@ const BusinessPortal = () => (
     >
       <Route index element={<Navigate to={BUSINESS_HOME_PATH} replace />} />
       <Route path={BUSINESS_ROUTE.overview} element={<OverviewPage />} />
-      <Route path={BUSINESS_ROUTE.trainers} element={<TrainersPage />} />
       <Route path={BUSINESS_ROUTE.recruiters} element={<RecruitersPage />} />
       <Route path={BUSINESS_ROUTE.placements} element={<PlacementsPage />} />
       <Route path="*" element={<Navigate to={BUSINESS_HOME_PATH} replace />} />

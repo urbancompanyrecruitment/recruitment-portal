@@ -1,7 +1,7 @@
-import { toIsoDate } from '@/domain/format';
+import dayjs from 'dayjs';
 import { Candidate, ImportRowOutcome, ProviderCategory } from '@/domain/interface';
 import { isValidSingaporePhone, phoneDigits } from '@/domain/phone';
-import { listBookableSlots } from '@/domain/slot';
+import { getInterviewCity, listBookableSlots, parseSlotId } from '@/domain/slot';
 import { MOCK_LEAD_ID_PREFIX, VERIFIED_BY_IMPORT } from '@/mocks/constant';
 import { findOrThrow, mockMutation, mockQuery } from './client';
 import { API_ERROR } from './constant';
@@ -46,7 +46,9 @@ export const registerCandidate = (input: RegistrationInput): Promise<Registratio
 
     if (singaporePhone && !isValidSingaporePhone(singaporePhone)) throw new Error(API_ERROR.invalidSingaporePhone);
 
-    const bookable = listBookableSlots(db.slots, db.candidates, input.interviewGeography, toIsoDate());
+    if (!getInterviewCity(input.interviewCity)) throw new Error(API_ERROR.unknownCity);
+
+    const bookable = listBookableSlots(input.interviewCity, db.candidates, dayjs());
 
     if (input.slotId && !bookable.some(slot => slot.id === input.slotId)) throw new Error(API_ERROR.slotUnavailable);
 
@@ -64,7 +66,7 @@ export const registerCandidate = (input: RegistrationInput): Promise<Registratio
 
     return {
       db: { ...db, candidates: [...db.candidates, candidate] },
-      result: { candidate, slot: db.slots.find(slot => slot.id === candidate.slotId) },
+      result: { candidate, slot: candidate.slotId ? parseSlotId(candidate.slotId) : undefined },
     };
   });
 

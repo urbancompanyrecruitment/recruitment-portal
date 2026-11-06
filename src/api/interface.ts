@@ -1,7 +1,6 @@
 import {
   Candidate,
   CookingFrequency,
-  Geography,
   ImportRowOutcome,
   InterviewSlot,
   RecruitmentSource,
@@ -52,7 +51,7 @@ export interface RegistrationInput {
   cookingFrequency: CookingFrequency;
   deepCleaningExperience: YesNo;
   consent: boolean;
-  interviewGeography: Geography;
+  interviewCity: string;
   slotId?: string;
 }
 
@@ -63,6 +62,14 @@ export interface RegistrationResult {
 
 export interface BookableSlot extends InterviewSlot {
   seatsLeft: number;
+}
+
+export interface SlotDaySummary {
+  date: string;
+  cityKey: string;
+  slots: number;
+  booked: number;
+  capacity: number;
 }
 
 export interface ImportRow {
@@ -97,22 +104,6 @@ export interface HubUpdateInput {
   hub: string;
   startDate: string;
   hubInstructions: string;
-}
-
-export interface SlotInput {
-  trainerId: string;
-  date: string;
-  time: string;
-  capacity: number;
-  centre: string;
-  address: string;
-  instructions: string;
-}
-
-export interface TrainerInput {
-  name: string;
-  loginId: string;
-  geography: Geography;
 }
 
 export interface RecruiterInput {

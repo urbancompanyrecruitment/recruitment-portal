@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
+import { SLOT_CAPACITY } from '@/domain/constant';
 import {
   CookingFrequency,
-  Geography,
   ImportRowOutcome,
   InactiveReason,
   LockState,
@@ -25,7 +25,7 @@ import {
   savePlacement,
   updateHub,
 } from './reservations';
-import { createSlot, listBookableSlotsFor, toggleSlotAvailability } from './slots';
+import { listBookableSlotsFor } from './slots';
 
 const registration: RegistrationInput = {
   name: 'Test Partner',
@@ -39,20 +39,20 @@ const registration: RegistrationInput = {
   cookingFrequency: CookingFrequency.Daily,
   deepCleaningExperience: YesNo.No,
   consent: true,
-  interviewGeography: Geography.Singapore,
-  slotId: 's1',
+  interviewCity: 'tampines',
 };
 
 const inDays = (days: number) => dayjs().add(days, 'day').format('YYYY-MM-DD');
 
 describe('candidates api', () => {
   it('registers a partner without a Singapore number and creates no lead', async () => {
-    const { candidate, slot } = await registerCandidate(registration);
+    const [firstSlot] = await listBookableSlotsFor('tampines');
+    const { candidate, slot } = await registerCandidate({ ...registration, slotId: firstSlot.id });
 
     expect(candidate).toMatchObject({ name: 'Test Partner', verified: false, primaryPhone: '+95 9999 1234' });
     expect(candidate.singaporePhone).toBeUndefined();
     expect(candidate.onboarding).toBeUndefined();
-    expect(slot?.id).toBe('s1');
+    expect(slot?.id).toBe(firstSlot.id);
   });
 
   it('registers a partner with a Singapore number and creates the lead', async () => {
@@ -75,13 +75,24 @@ describe('candidates api', () => {
     );
   });
 
-  it('rejects a slot that is full', async () => {
-    await registerCandidate({ ...registration, slotId: 's7' });
+  it('rejects past, unknown and full slots', async () => {
+    const [firstSlot] = await listBookableSlotsFor('tampines');
 
-    await expect(registerCandidate({ ...registration, primaryPhone: '+95 9999 5678', slotId: 's7' })).rejects.toThrow(
+    await expect(registerCandidate({ ...registration, slotId: 'tampines_2020-01-01_09:00' })).rejects.toThrow(
       API_ERROR.slotUnavailable,
     );
-  });
+    await expect(registerCandidate({ ...registration, interviewCity: 'nowhere' })).rejects.toThrow(API_ERROR.unknownCity);
+
+    await Array.from({ length: SLOT_CAPACITY }, (_, index) => index).reduce<Promise<unknown>>(
+      (chain, index) =>
+        chain.then(() => registerCandidate({ ...registration, primaryPhone: `+95 9999 00${index}`, slotId: firstSlot.id })),
+      Promise.resolve(),
+    );
+
+    await expect(registerCandidate({ ...registration, primaryPhone: '+95 9999 5678', slotId: firstSlot.id })).rejects.toThrow(
+      API_ERROR.slotUnavailable,
+    );
+  }, 20000);
 
   it('lists every seeded candidate for the business team', async () => {
     const candidates = await listCandidates();
@@ -217,33 +228,12 @@ describe('reservations api', () => {
 });
 
 describe('slots and people api', () => {
-  it('publishes a slot in the trainer geography and time zone', async () => {
-    const slot = await createSlot({
-      trainerId: 't-mm',
-      date: inDays(7),
-      time: '09:00',
-      capacity: 5,
-      centre: 'Yangon centre',
-      address: 'Somewhere',
-      instructions: 'Bring ID',
-    });
+  it('offers hourly future slots with seats left for a city', async () => {
+    const slots = await listBookableSlotsFor('bedok');
 
-    expect(slot).toMatchObject({ geography: Geography.Myanmar, timeZone: 'Asia/Yangon', isOpen: true });
-    expect((await listBookableSlotsFor(Geography.Myanmar)).find(item => item.id === slot.id)?.seatsLeft).toBe(5);
-  });
-
-  it('rejects clashing or past sessions', async () => {
-    const s1 = readDb().slots.find(slot => slot.id === 's1')!;
-    const input = { trainerId: 't-sg', date: s1.date, time: s1.time, capacity: 4, centre: 'c', address: 'a', instructions: 'i' };
-
-    await expect(createSlot(input)).rejects.toThrow(API_ERROR.duplicateSession);
-    await expect(createSlot({ ...input, date: inDays(-1) })).rejects.toThrow(API_ERROR.invalidSlot);
-  });
-
-  it('hides closed slots from partner registration', async () => {
-    await toggleSlotAvailability('s1');
-
-    expect((await listBookableSlotsFor(Geography.Singapore)).map(slot => slot.id)).not.toContain('s1');
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every(slot => slot.cityKey === 'bedok' && slot.seatsLeft <= SLOT_CAPACITY)).toBe(true);
+    expect(slots.every(slot => dayjs(`${slot.date}T${slot.time}`).isAfter(dayjs()))).toBe(true);
   });
 
   it('signs recruiters in with the demo password and trims the login id', async () => {

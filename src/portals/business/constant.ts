@@ -8,7 +8,6 @@ export const BUSINESS_BASE_PATH = '/business';
 export const BUSINESS_ROUTE = {
   login: 'login',
   overview: 'overview',
-  trainers: 'trainers',
   recruiters: 'recruiters',
   placements: 'placements',
 };
@@ -19,14 +18,13 @@ export const BUSINESS_WORKSPACE = 'Business workspace';
 
 export const BUSINESS_NAV_ITEMS: NavItem[] = [
   { path: BUSINESS_HOME_PATH, label: 'Overview' },
-  { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.trainers}`, label: 'Trainers & calendars' },
   { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.recruiters}`, label: 'Recruiter access' },
   { path: `${BUSINESS_BASE_PATH}/${BUSINESS_ROUTE.placements}`, label: 'Locks, placements & hubs' },
 ];
 
 export const BUSINESS_LOGIN = {
   title: 'Business team sign in',
-  subtitle: 'Sign in with your Urban Company Google account to track recruitment, publish trainer calendars and manage recruiter access.',
+  subtitle: 'Sign in with your Urban Company Google account to track signups, verify partners and manage recruiter access.',
   note: 'Access is granted by the business team through the UC access-control dashboard. Only urbancompany.com and urbanclap.com accounts can sign in.',
 };
 
@@ -37,9 +35,6 @@ export const SIDEBAR_FOOTER = {
 };
 
 export const BUSINESS_MESSAGE = {
-  trainerCreated: 'Trainer created.',
-  slotPublished: 'Slot published to partner registration.',
-  slotAvailabilityUpdated: 'Session availability updated.',
   recruiterCreated: 'Approved recruiter created.',
   recruiterAccessUpdated: 'Recruiter access updated.',
   hubSaved: 'Hub and joining date saved to the assigned recruiter profile.',
@@ -52,12 +47,6 @@ export const BUSINESS_MESSAGE = {
 export const EMPTY_VALUE = '—';
 
 export const NOT_SCHEDULED = 'Not scheduled';
-
-export const TIME_FORMAT = 'HH:mm';
-
-export const SLOT_MINUTE_STEP = 15;
-
-export const DEFAULT_SLOT_CAPACITY = 8;
 
 export const TABLE_PAGE_SIZE = 10;
 
@@ -91,6 +80,9 @@ export const SINGAPORE_PHONE_NOTE =
   'Adding the first Singapore number creates the lead in provider-onboarding-service (mocked here). Updating an existing number only changes the stored value.';
 
 export const SINGAPORE_PHONE_RULE_MESSAGE = 'Use a Singapore mobile number, e.g. +65 9123 4567';
+
+export const SLOT_SCHEDULE_NOTE =
+  'Slots are generated, not published: one-hour slots from 08:00 to 18:00 for today and the next two days in each interview city. Only future start times are offered.';
 
 export const LOCK_CLEANUP_NOTE =
   'A lock stops counting as soon as its release time passes; the daily cleanup marks those locks inactive so the history below stays readable.';

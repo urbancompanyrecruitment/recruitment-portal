@@ -1,9 +1,3 @@
-export enum Geography {
-  Singapore = 'Singapore',
-  Myanmar = 'Myanmar',
-  Overseas = 'Overseas',
-}
-
 export enum ProviderCategory {
   RegularCleaning = 'Regular cleaning',
   PremiumCleaning = 'Premium cleaning',
@@ -72,6 +66,23 @@ export enum ImportRowOutcome {
   NoSingaporeNumber = 'no_singapore_number',
 }
 
+export interface InterviewCity {
+  key: string;
+  name: string;
+  centre: string;
+  address: string;
+  instructions: string;
+}
+
+export interface InterviewSlot {
+  id: string;
+  cityKey: string;
+  date: string;
+  time: string;
+  timeZone: string;
+  capacity: number;
+}
+
 export interface Onboarding {
   leadId: string;
   leadCreatedAt: string;
@@ -93,7 +104,7 @@ export interface Candidate {
   cookingFrequency: CookingFrequency;
   deepCleaningExperience: YesNo;
   consent: boolean;
-  interviewGeography: Geography;
+  interviewCity: string;
   slotId?: string;
   category: ProviderCategory;
   yearsOfExperience: number;
@@ -103,28 +114,6 @@ export interface Candidate {
   verifiedBy?: string;
   verifiedAt?: string;
   createdAt: string;
-}
-
-export interface InterviewSlot {
-  id: string;
-  geography: Geography;
-  date: string;
-  time: string;
-  timeZone: string;
-  trainerId: string;
-  capacity: number;
-  centre: string;
-  address: string;
-  instructions: string;
-  isOpen: boolean;
-}
-
-export interface Trainer {
-  id: string;
-  name: string;
-  geography: Geography;
-  loginId: string;
-  active: boolean;
 }
 
 export interface Recruiter {

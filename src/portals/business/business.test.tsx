@@ -108,16 +108,12 @@ describe('Business portal', () => {
     expect(await screen.findByRole('button', { name: 'Activate Jamie Lee' })).toBeInTheDocument();
   });
 
-  it('closes availability for a published session', async () => {
-    const user = userEvent.setup();
-    renderPortal('/business/trainers');
+  it('lists upcoming generated slots per city', async () => {
+    renderPortal('/business/overview');
 
-    expect(await screen.findByText('trainer.sg · Singapore')).toBeInTheDocument();
-    const [firstSession] = await screen.findAllByRole('button', { name: 'Close availability' });
-    await user.click(firstSession);
-
-    expect(await screen.findByText('Reopen availability')).toBeInTheDocument();
-    expect(screen.getByText('Closed')).toBeInTheDocument();
+    const card = (await screen.findByText('Upcoming interview slots')).closest('.ant-card') as HTMLElement;
+    expect(await within(card).findAllByText('Tampines')).not.toHaveLength(0);
+    expect(within(card).getAllByText(/\/ \d+$/).length).toBeGreaterThan(0);
   });
 
   it('shows lock records with their state and the released profiles', async () => {

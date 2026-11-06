@@ -7,6 +7,7 @@ import {
   Checkbox,
   Col,
   Descriptions,
+  Flex,
   Form,
   Input,
   InputNumber,
@@ -27,16 +28,17 @@ import {
   COOKING_FREQUENCIES,
   COUNTRIES,
   DAY_DATE_FORMAT,
-  GEOGRAPHIES,
   MAX_PARTNER_AGE,
   MIN_PARTNER_AGE,
   PHONE_PATTERN,
   RECRUITMENT_SOURCES,
+  SINGAPORE_INTERVIEW_CITIES,
   SINGAPORE_PHONE_PATTERN,
   SOURCES_REQUIRING_REFERRER,
   YES_NO,
 } from '@/domain/constant';
 import { isSingaporePhone } from '@/domain/phone';
+import { getInterviewCity } from '@/domain/slot';
 import { Notice, PageHeader } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import {
@@ -58,22 +60,25 @@ export const RegistrationPage = () => {
   const [form] = Form.useForm<RegistrationFormValues>();
   const [registration, setRegistration] = useState<RegistrationResult>();
   const [copyPrimary, setCopyPrimary] = useState(false);
-  const geography = Form.useWatch('interviewGeography', form);
+  const interviewCity = Form.useWatch('interviewCity', form);
   const slotId = Form.useWatch('slotId', form);
   const source = Form.useWatch('source', form);
   const primaryPhone = Form.useWatch('primaryPhone', form) ?? '';
   const slots = useQuery({
-    queryKey: QUERY_KEY.bookableSlots(geography ?? ''),
-    queryFn: () => listBookableSlotsFor(geography),
-    enabled: Boolean(geography),
+    queryKey: QUERY_KEY.bookableSlots(interviewCity ?? ''),
+    queryFn: () => listBookableSlotsFor(interviewCity),
+    enabled: Boolean(interviewCity),
   });
   const register = useAppMutation(registerCandidate, REGISTRATION_SUCCESS_MESSAGE);
   const selectedSlot = slots.data?.find(slot => slot.id === slotId);
+  const selectedCity = getInterviewCity(interviewCity ?? '');
   const referrerRequired = SOURCES_REQUIRING_REFERRER.includes(source);
   const primaryIsSingapore = isSingaporePhone(primaryPhone);
+  const slotDays = [...new Set(slots.data?.map(slot => slot.date) ?? [])];
 
   if (registration) {
     const { candidate, slot } = registration;
+    const city = getInterviewCity(candidate.interviewCity);
 
     return (
       <Card>
@@ -102,12 +107,12 @@ export const RegistrationPage = () => {
               ...(candidate.singaporePhone
                 ? [{ key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone }]
                 : []),
-              ...(slot
+              ...(slot && city
                 ? [
-                    { key: 'centre', label: 'Interview centre', children: slot.centre },
+                    { key: 'centre', label: 'Interview centre', children: `${city.centre}, ${city.name}` },
                     { key: 'when', label: 'Day & time', children: `${dayjs(slot.date).format(DAY_DATE_FORMAT)} · ${slot.time} (${slot.timeZone})` },
-                    { key: 'address', label: 'Address', children: slot.address },
-                    { key: 'instructions', label: 'Instructions', children: slot.instructions },
+                    { key: 'address', label: 'Address', children: city.address },
+                    { key: 'instructions', label: 'Instructions', children: city.instructions },
                   ]
                 : [{ key: 'no-slot', label: 'Interview', children: THANK_YOU.noSlot }]),
             ]}
@@ -126,14 +131,14 @@ export const RegistrationPage = () => {
     <>
       <PageHeader
         title="Register as an Urban Company partner"
-        subtitle="Complete your details and choose your preferred interview location and slot."
+        subtitle="Complete your details and choose your interview city and slot."
       />
       <Form
         form={form}
         layout="vertical"
         scrollToFirstError
         onValuesChange={changed => {
-          if ('interviewGeography' in changed) form.setFieldValue('slotId', undefined);
+          if ('interviewCity' in changed) form.setFieldValue('slotId', undefined);
 
           if ('primaryPhone' in changed && copyPrimary) form.setFieldValue('singaporePhone', changed.primaryPhone);
         }}
@@ -274,16 +279,19 @@ export const RegistrationPage = () => {
           <Col xs={24} lg={11}>
             <Card title="Your interview">
               <Form.Item
-                name="interviewGeography"
-                label="Country / route you want to interview in"
-                extra="This can be different from where you live now."
-                rules={[{ required: true }]}
+                name="interviewCity"
+                label="Interview city"
+                extra="Interviews are held in Singapore. Pick the centre closest to you."
+                rules={[{ required: true, message: 'Choose an interview city' }]}
               >
-                <Select placeholder="Select" options={GEOGRAPHIES.map(value => ({ value, label: value }))} />
+                <Select
+                  placeholder="Select"
+                  options={SINGAPORE_INTERVIEW_CITIES.map(city => ({ value: city.key, label: city.name }))}
+                />
               </Form.Item>
-              {!geography && (
+              {!interviewCity && (
                 <Typography.Paragraph type="secondary">
-                  Choose an interview location to see the next available dates and centre details.
+                  Choose a city to see the next available slots and centre details.
                 </Typography.Paragraph>
               )}
               {slots.isFetching && <Spin />}
@@ -291,43 +299,49 @@ export const RegistrationPage = () => {
                 <Alert
                   type="info"
                   showIcon
-                  title="No slots are available right now. You can still register — the team will share new dates."
+                  title="No slots are available in the next days. You can still register — the team will share new dates."
                   style={{ marginBottom: 20 }}
                 />
               )}
               {Boolean(slots.data?.length) && (
                 <Form.Item
                   name="slotId"
-                  label="Preferred interview slot"
+                  label="Interview slot"
                   rules={[{ required: true, message: 'Choose an interview slot' }]}
                 >
                   <Radio.Group className="slot-options">
-                    {slots.data?.map(slot => (
-                      <Radio key={slot.id} value={slot.id} className="slot-option">
-                        <strong>{dayjs(slot.date).format(SLOT_DAY_FORMAT)}</strong>
-                        <span className="muted">
-                          {' '}
-                          · {slot.time} ({slot.timeZone})
-                        </span>
-                        <div className="small muted">
-                          {slot.centre} · {slot.seatsLeft} {slot.seatsLeft === 1 ? 'seat' : 'seats'} left
-                        </div>
-                      </Radio>
+                    {slotDays.map(date => (
+                      <div key={date} className="slot-day">
+                        <div className="small muted slot-day-label">{dayjs(date).format(SLOT_DAY_FORMAT)}</div>
+                        <Flex gap={6} wrap>
+                          {slots.data
+                            ?.filter(slot => slot.date === date)
+                            .map(slot => (
+                              <Radio.Button key={slot.id} value={slot.id}>
+                                {slot.time}
+                              </Radio.Button>
+                            ))}
+                        </Flex>
+                      </div>
                     ))}
                   </Radio.Group>
                 </Form.Item>
               )}
-              {selectedSlot && (
+              {selectedSlot && selectedCity && (
                 <div className="centre-box">
                   <span className="eyebrow">Interview centre</span>
                   <Typography.Title level={4} style={{ margin: '6px 0' }}>
-                    {selectedSlot.centre}
+                    {selectedCity.centre}
                   </Typography.Title>
+                  <Typography.Paragraph style={{ marginBottom: 4 }}>
+                    <EnvironmentOutlined /> {selectedCity.address}
+                  </Typography.Paragraph>
                   <Typography.Paragraph style={{ marginBottom: 8 }}>
-                    <EnvironmentOutlined /> {selectedSlot.address}
+                    {dayjs(selectedSlot.date).format(DAY_DATE_FORMAT)} · {selectedSlot.time} ({selectedSlot.timeZone}) ·{' '}
+                    {selectedSlot.seatsLeft} {selectedSlot.seatsLeft === 1 ? 'seat' : 'seats'} left
                   </Typography.Paragraph>
                   <Typography.Paragraph type="secondary" className="small" style={{ marginBottom: 0 }}>
-                    {selectedSlot.instructions}
+                    {selectedCity.instructions}
                   </Typography.Paragraph>
                 </div>
               )}

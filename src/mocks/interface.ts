@@ -1,17 +1,7 @@
-import {
-  Aggregator,
-  Candidate,
-  InterviewSlot,
-  Recruiter,
-  Reservation,
-  ReservationEvent,
-  Trainer,
-} from '@/domain/interface';
+import { Aggregator, Candidate, Recruiter, Reservation, ReservationEvent } from '@/domain/interface';
 
 export interface MockDb {
   candidates: Candidate[];
-  slots: InterviewSlot[];
-  trainers: Trainer[];
   recruiters: Recruiter[];
   aggregators: Aggregator[];
   reservations: Reservation[];
