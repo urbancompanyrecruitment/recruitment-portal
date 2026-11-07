@@ -1,6 +1,4 @@
 {
-  "sherlockServerUrl": "https://stage-ops.urbanclap.com",
-  "sherlockApiUrl": "https://stage-ops.urbanclap.com/api/",
-  "gatewayUrl": "https://pro.urbanclap.com/dashboard-api/v2",
+  "apiBaseUrl": "/api",
   "googleClientId": "614433729343-srjrrlulfgq0c4svp8ktrljid44qimia.apps.googleusercontent.com"
 }

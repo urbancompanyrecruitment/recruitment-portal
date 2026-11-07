@@ -1,6 +1,4 @@
 export interface Environment {
-  sherlockServerUrl: string;
-  sherlockApiUrl: string;
-  gatewayUrl: string;
+  apiBaseUrl: string;
   googleClientId: string;
 }

@@ -5,7 +5,10 @@ export interface RenderOptions {
   sessions?: Sessions;
 }
 
-export interface FetchStub {
+export interface ApiStub {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  path: string;
   status?: number;
-  body: unknown;
+  body?: unknown;
+  text?: string;
 }

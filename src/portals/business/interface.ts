@@ -1,13 +1,9 @@
-import { Dayjs } from 'dayjs';
-import { HubUpdateInput } from '@/api/interface';
-import { Aggregator, Candidate, Recruiter, Reservation } from '@/domain/interface';
+import { AdminReservation, Candidate } from '@/domain/interface';
 
 export interface TrackerRow {
   candidate: Candidate;
   slotLabel: string;
-  reservation?: Reservation;
-  recruiter?: Recruiter;
-  aggregator?: Aggregator;
+  reservation?: AdminReservation;
 }
 
 export interface OverviewMetric {
@@ -20,22 +16,6 @@ export interface OverviewMetric {
 export interface EventTagStyle {
   label: string;
   color?: string;
-}
-
-export interface HubFormValues {
-  hub: string;
-  startDate: Dayjs;
-  hubInstructions?: string;
-}
-
-export interface HubUpdateVariables {
-  candidateId: string;
-  input: HubUpdateInput;
-}
-
-export interface QuotaUpdateVariables {
-  aggregatorId: string;
-  quota: number;
 }
 
 export interface SingaporePhoneFormValues {
@@ -52,9 +32,7 @@ export interface ImportVariables {
   fileName: string;
 }
 
-export interface AggregatorUsage {
-  aggregator: Aggregator;
-  used: number;
-  remaining: number;
-  candidateNames: string[];
+export interface TemporaryPasswordNotice {
+  title: string;
+  password: string;
 }

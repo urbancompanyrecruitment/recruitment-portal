@@ -6,7 +6,6 @@ import { CandidateProfilePage } from './pages/CandidateProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyCandidatesPage } from './pages/MyCandidatesPage';
-import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import './recruiter.css';
 
@@ -25,7 +24,6 @@ const RecruiterPortal = () => (
       <Route path="profiles" element={<ProfilesPage />} />
       <Route path="my-candidates" element={<MyCandidatesPage />} />
       <Route path="candidates/:candidateId" element={<CandidateProfilePage />} />
-      <Route path="notifications" element={<NotificationsPage />} />
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Route>
   </Routes>

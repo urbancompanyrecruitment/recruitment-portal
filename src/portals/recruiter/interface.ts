@@ -1,29 +1,27 @@
 import { Dayjs } from 'dayjs';
 import { AvailableCandidate } from '@/api/interface';
-import { ProviderCategory, ReservationStatus } from '@/domain/interface';
+import { ReservationStatus } from '@/domain/interface';
 
 export enum ProfileSort {
-  Experience = 'experience',
+  Verified = 'verified',
   Name = 'name',
 }
 
 export enum DashboardMetric {
   Available = 'available',
   Awaiting = 'awaiting',
-  Assigned = 'assigned',
-  JoiningSoon = 'joining-soon',
+  Placed = 'placed',
 }
 
 export enum CandidateTab {
   All = 'all',
   Awaiting = 'awaiting',
-  Assigned = 'assigned',
+  Placed = 'placed',
 }
 
 export interface ProfileFilters {
   search: string;
   country?: string;
-  category?: ProviderCategory;
   sort: ProfileSort;
 }
 
@@ -49,19 +47,15 @@ export interface CandidateTabConfig {
 
 export interface PlacementFormValues {
   startDate: Dayjs;
-  aggregatorId: string;
-}
-
-export interface HubStatusTagProps {
-  hub?: string;
+  employerName: string;
 }
 
 export interface DemoAccount {
   label: string;
-  loginId: string;
+  email: string;
 }
 
 export interface LoginFormValues {
-  loginId: string;
+  email: string;
   password: string;
 }

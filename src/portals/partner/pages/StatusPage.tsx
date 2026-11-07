@@ -3,23 +3,25 @@ import { Card, Descriptions, Spin, Steps } from 'antd';
 import dayjs from 'dayjs';
 import { getPartnerStatus } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
+import { useInterviewCities } from '@/api/hooks';
 import { DAY_DATE_FORMAT } from '@/domain/constant';
 import { PartnerStage, UserRole } from '@/domain/interface';
-import { getInterviewCity } from '@/domain/slot';
+import { findCity } from '@/domain/slot';
 import { useSessionUser } from '@/shared/auth/AuthProvider';
 import { Notice, PageHeader } from '@/shared/components/ui';
 import { PARTNER_STATUS } from '../constant';
 
-const STAGE_ORDER = [PartnerStage.Registered, PartnerStage.Verified, PartnerStage.Placed];
+const STAGE_ORDER = [PartnerStage.Registered, PartnerStage.Verified, PartnerStage.Placed, PartnerStage.Joined];
 
 export const StatusPage = () => {
   const user = useSessionUser(UserRole.Partner);
-  const status = useQuery({ queryKey: QUERY_KEY.partnerStatus(user.id), queryFn: () => getPartnerStatus(user.id) });
+  const status = useQuery({ queryKey: QUERY_KEY.partnerStatus(user.id), queryFn: getPartnerStatus });
+  const cities = useInterviewCities();
 
   if (!status.data) return <Spin />;
 
   const { candidate, slot, stage } = status.data;
-  const city = getInterviewCity(candidate.interviewCity);
+  const city = findCity(cities.data ?? [], candidate.interviewCity);
 
   return (
     <div className="partner-narrow">

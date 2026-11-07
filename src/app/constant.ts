@@ -7,11 +7,14 @@ export const PORTALS = [
   {
     path: '/recruiter',
     title: 'Recruiter portal',
-    description: 'Browse UC-verified profiles, lock and contact candidates, assign aggregator and start date.',
+    description: 'Browse UC-verified profiles, lock and contact partners, save the employer and start date.',
   },
   {
     path: '/business',
     title: 'Business team portal',
-    description: 'Signups export, Singapore numbers, verified-list upload, recruiter locks, placements, quotas and hubs.',
+    description: 'Signups export, Singapore numbers, verified-list upload, recruiter accounts, locks and placements.',
   },
 ];
+
+export const DIRECTORY_NOTE =
+  'Local development: run partner-recruitment-service on port 3006 and seed it (npm run seed) to get the sample partners, recruiters and locks.';

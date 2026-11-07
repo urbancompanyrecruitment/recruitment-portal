@@ -2,10 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Button, Result, Spin } from 'antd';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { fetchCurrentUser, signOutBusiness } from '@/api/auth';
-import { QUERY_KEY, TOKEN_COOKIE } from '@/api/constant';
+import { fetchCurrentUser, signOutRole } from '@/api/auth';
+import { QUERY_KEY } from '@/api/constant';
 import { SessionUser, UserRole } from '@/domain/interface';
-import { readCookie } from '@/shared/utils/cookie';
 import { ACCESS_DENIED, REQUIRED_BUSINESS_ACCESSES, SESSION_STORAGE_KEY } from './constant';
 import { AuthContextValue, RoleGuardProps, Sessions } from './interface';
 
@@ -23,7 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInAs = (user: SessionUser) => setSessions(current => ({ ...current, [user.role]: user }));
 
   const signOut = (role: UserRole) => {
-    if (role === UserRole.Business) signOutBusiness();
+    signOutRole(role).catch(() => undefined);
 
     setSessions(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== role)));
   };
@@ -51,18 +50,18 @@ export const RequireRole = ({ role, children }: RoleGuardProps) => {
   const { sessions, signInAs, signOut } = useAuth();
   const location = useLocation();
   const user = sessions[role];
-  const canRestore = role === UserRole.Business && !user && Boolean(readCookie(TOKEN_COOKIE));
-  const restored = useQuery({ queryKey: QUERY_KEY.currentUser, queryFn: fetchCurrentUser, enabled: canRestore });
+  const restored = useQuery({
+    queryKey: QUERY_KEY.currentUser(role),
+    queryFn: () => fetchCurrentUser(role),
+    enabled: !user,
+    retry: false,
+  });
 
   useEffect(() => {
     if (restored.data) signInAs(restored.data);
   }, [restored.data]);
 
-  useEffect(() => {
-    if (restored.error) signOut(role);
-  }, [restored.error]);
-
-  if (canRestore && !restored.error) return <Spin fullscreen />;
+  if (!user && restored.isPending) return <Spin fullscreen />;
 
   if (!user) return <Navigate to={`/${role}/login`} replace state={{ from: location.pathname }} />;
 

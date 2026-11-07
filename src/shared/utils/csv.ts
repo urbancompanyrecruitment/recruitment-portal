@@ -2,15 +2,21 @@ const CSV_LINE_BREAK = /\r?\n/;
 
 const CSV_QUOTES = /^"|"$/g;
 
-export const downloadCsv = (rows: unknown[][], fileName: string): void => {
-  const content =
-    '﻿' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
+
+export const downloadTextFile = (content: string, fileName: string, type = CSV_MIME_TYPE): void => {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
+  link.href = URL.createObjectURL(new Blob([content], { type }));
   link.download = fileName;
   link.click();
   URL.revokeObjectURL(link.href);
 };
+
+export const downloadCsv = (rows: unknown[][], fileName: string): void =>
+  downloadTextFile(
+    '﻿' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n'),
+    fileName,
+  );
 
 export const parseCsvColumn = (text: string, columnName: string): string[] => {
   const rows = text

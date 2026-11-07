@@ -1,38 +1,53 @@
-import { Button, Card, Col, Flex, Form, Input, Row, Table, TableColumnsType, Tag, Typography } from 'antd';
-import { useCandidates, useRecruiters, useReservationEvents } from '@/api/hooks';
+import { Alert, Button, Card, Col, Flex, Form, Input, Row, Table, TableColumnsType, Tag, Typography } from 'antd';
+import { useState } from 'react';
+import { useRecruiters, useReservations } from '@/api/hooks';
 import { RecruiterInput } from '@/api/interface';
-import { createRecruiter, toggleRecruiterAccess } from '@/api/people';
+import { createRecruiter, setRecruiterStatus } from '@/api/people';
 import { formatDateTime } from '@/domain/format';
-import { ReservationEvent } from '@/domain/interface';
+import { AdminReservation, Recruiter, RecruiterStatus } from '@/domain/interface';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { CandidateAvatar, Notice, PageHeader } from '@/shared/components/ui';
-import { BUSINESS_MESSAGE, EMPTY_VALUE, RESERVATION_EVENT_TAG, TABLE_PAGE_SIZE } from '../constant';
+import {
+  BUSINESS_MESSAGE,
+  INACTIVE_REASON_LABEL,
+  LOCK_STATE_TAG,
+  TABLE_PAGE_SIZE,
+  TEMPORARY_PASSWORD,
+} from '../constant';
+import { TemporaryPasswordNotice } from '../interface';
 
 export const RecruitersPage = () => {
   const [form] = Form.useForm<RecruiterInput>();
+  const [notice, setNotice] = useState<TemporaryPasswordNotice>();
   const { data: recruiters = [] } = useRecruiters();
-  const { data: events = [], isLoading } = useReservationEvents();
-  const { data: candidates = [] } = useCandidates();
+  const { data: reservations = [], isLoading } = useReservations();
   const addRecruiter = useAppMutation(createRecruiter, BUSINESS_MESSAGE.recruiterCreated);
-  const toggleAccess = useAppMutation(toggleRecruiterAccess, BUSINESS_MESSAGE.recruiterAccessUpdated);
+  const toggleAccess = useAppMutation(
+    (recruiter: Recruiter) => setRecruiterStatus(recruiter.id, recruiter.active ? RecruiterStatus.Suspended : RecruiterStatus.Active),
+    BUSINESS_MESSAGE.recruiterAccessUpdated,
+  );
 
-  const columns: TableColumnsType<ReservationEvent> = [
-    { title: 'When', key: 'at', render: (_, event) => formatDateTime(event.at) },
+  const columns: TableColumnsType<AdminReservation> = [
+    { title: 'Locked at', key: 'lockedAt', render: (_, lock) => formatDateTime(lock.lockedAt) },
     {
       title: 'Recruiter',
       key: 'recruiter',
-      render: (_, event) => recruiters.find(recruiter => recruiter.id === event.recruiterId)?.name ?? EMPTY_VALUE,
+      render: (_, lock) => (
+        <>
+          <div>{lock.recruiterName}</div>
+          <div className="muted small">{lock.recruiterCompany}</div>
+        </>
+      ),
     },
+    { title: 'Partner', dataIndex: 'candidateName', key: 'candidate' },
     {
-      title: 'Candidate',
-      key: 'candidate',
-      render: (_, event) => candidates.find(candidate => candidate.id === event.candidateId)?.name ?? EMPTY_VALUE,
-    },
-    {
-      title: 'Event',
-      key: 'type',
-      render: (_, event) => (
-        <Tag color={RESERVATION_EVENT_TAG[event.type].color}>{RESERVATION_EVENT_TAG[event.type].label}</Tag>
+      title: 'State',
+      key: 'state',
+      render: (_, lock) => (
+        <>
+          <Tag color={LOCK_STATE_TAG[lock.state].color}>{LOCK_STATE_TAG[lock.state].label}</Tag>
+          {lock.inactiveReason && <div className="muted small">{INACTIVE_REASON_LABEL[lock.inactiveReason]}</div>}
+        </>
       ),
     },
   ];
@@ -41,6 +56,25 @@ export const RecruitersPage = () => {
     <>
       <PageHeader title="Recruiter access" subtitle="Issue approved accounts and suspend access when required." />
       <Flex vertical gap={18}>
+        {notice && (
+          <Alert
+            type="success"
+            showIcon
+            closable
+            onClose={() => setNotice(undefined)}
+            title={notice.title}
+            description={
+              <>
+                <Typography.Text code copyable>
+                  {notice.password}
+                </Typography.Text>
+                <div className="small muted" style={{ marginTop: 6 }}>
+                  {TEMPORARY_PASSWORD.note}
+                </div>
+              </>
+            }
+          />
+        )}
         <Row gutter={[18, 18]}>
           <Col xs={24} lg={10}>
             <Card title="Create recruiter" style={{ height: '100%' }}>
@@ -48,10 +82,15 @@ export const RecruitersPage = () => {
                 form={form}
                 layout="vertical"
                 requiredMark={false}
-                onFinish={({ name, company, loginId }) =>
+                onFinish={({ name, company, email }) =>
                   addRecruiter.mutate(
-                    { name: name.trim(), company: company.trim(), loginId: loginId.trim() },
-                    { onSuccess: () => form.resetFields() },
+                    { name: name.trim(), company: company.trim(), email: email.trim().toLowerCase() },
+                    {
+                      onSuccess: created => {
+                        form.resetFields();
+                        setNotice({ title: TEMPORARY_PASSWORD.recruiterTitle(created.recruiter.name), password: created.temporaryPassword });
+                      },
+                    },
                   )
                 }
               >
@@ -61,12 +100,10 @@ export const RecruitersPage = () => {
                 <Form.Item name="company" label="Organisation" rules={[{ required: true, whitespace: true }]}>
                   <Input placeholder="Recruitment agency" />
                 </Form.Item>
-                <Form.Item name="loginId" label="Login ID" rules={[{ required: true, whitespace: true }]}>
-                  <Input placeholder="e.g. recruiter.c" />
+                <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Enter a valid email' }]}>
+                  <Input placeholder="recruiter@agency.sg" />
                 </Form.Item>
-                <Notice>
-                  This mock uses the shared demo password. Production credentials will be issued by the backend.
-                </Notice>
+                <Notice>The recruiter signs in with this email and the temporary password shown after creation.</Notice>
                 <Button type="primary" htmlType="submit" loading={addRecruiter.isPending}>
                   Create approved recruiter
                 </Button>
@@ -91,7 +128,7 @@ export const RecruitersPage = () => {
                       <div>
                         <Typography.Text strong>{recruiter.name}</Typography.Text>
                         <div className="muted small">
-                          {recruiter.company} · {recruiter.loginId}
+                          {recruiter.company} · {recruiter.email}
                         </div>
                       </div>
                     </Flex>
@@ -101,8 +138,8 @@ export const RecruitersPage = () => {
                         size="small"
                         danger={recruiter.active}
                         aria-label={`${action} ${recruiter.name}`}
-                        loading={toggleAccess.isPending && toggleAccess.variables === recruiter.id}
-                        onClick={() => toggleAccess.mutate(recruiter.id)}
+                        loading={toggleAccess.isPending && toggleAccess.variables?.id === recruiter.id}
+                        onClick={() => toggleAccess.mutate(recruiter)}
                       >
                         {action}
                       </Button>
@@ -118,7 +155,7 @@ export const RecruitersPage = () => {
           <Table
             rowKey="id"
             columns={columns}
-            dataSource={events}
+            dataSource={reservations}
             loading={isLoading}
             pagination={{ pageSize: TABLE_PAGE_SIZE, hideOnSinglePage: true }}
             scroll={{ x: 'max-content' }}

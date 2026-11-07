@@ -1,7 +1,6 @@
 import { Button, Card, Empty, Flex, Table, Tabs, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAggregators } from '@/api/hooks';
 import { ReservedCandidate } from '@/api/interface';
 import { formatDate } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
@@ -16,7 +15,6 @@ export const MyCandidatesPage = () => {
   const user = useSessionUser(UserRole.Recruiter);
   const navigate = useNavigate();
   const { data = [], isLoading, dataUpdatedAt } = useMyReservations(user.id);
-  const aggregators = useAggregators();
   const [activeTab, setActiveTab] = useState<CandidateTab>(CandidateTab.All);
 
   const rowsByTab = Object.fromEntries(
@@ -28,7 +26,7 @@ export const MyCandidatesPage = () => {
 
   return (
     <>
-      <PageHeader title="My candidates" subtitle="Manage your locked profiles and confirmed aggregator placements." />
+      <PageHeader title="My candidates" subtitle="Manage your locked profiles and confirmed placements." />
       <Tabs
         activeKey={activeTab}
         onChange={key => setActiveTab(key as CandidateTab)}
@@ -39,7 +37,7 @@ export const MyCandidatesPage = () => {
       />
       <Card styles={{ body: { padding: 0 } }}>
         <Table<ReservedCandidate>
-          rowKey={row => row.candidate.id}
+          rowKey={row => row.reservation.id}
           loading={isLoading}
           dataSource={rowsByTab[activeTab]}
           pagination={false}
@@ -62,7 +60,7 @@ export const MyCandidatesPage = () => {
                   <CandidateAvatar name={candidate.name} size={36} />
                   <div>
                     <Typography.Text strong>{candidate.name}</Typography.Text>
-                    <div className="muted small">{candidate.category}</div>
+                    <div className="muted small">{candidate.nationality}</div>
                   </div>
                 </Flex>
               ),
@@ -78,19 +76,17 @@ export const MyCandidatesPage = () => {
               render: (_, { reservation }) => formatDate(reservation.startDate),
             },
             {
-              key: 'aggregator',
-              title: 'Aggregator',
+              key: 'employer',
+              title: 'Employer',
               render: (_, { reservation }) =>
-                aggregators.data?.find(aggregator => aggregator.id === reservation.aggregatorId)?.name ?? (
-                  <Typography.Text type="secondary">Not assigned</Typography.Text>
-                ),
+                reservation.employerName ?? <Typography.Text type="secondary">Not saved</Typography.Text>,
             },
             {
               key: 'status',
               title: 'Status',
               render: (_, { reservation }) =>
-                getReservationStatus(reservation) === ReservationStatus.AggregatorAssigned ? (
-                  <Tag color="success">Assigned</Tag>
+                getReservationStatus(reservation) === ReservationStatus.Placed ? (
+                  <Tag color="success">Placed</Tag>
                 ) : (
                   <Tag color="warning">{formatLockStatus(reservation, dataUpdatedAt)}</Tag>
                 ),

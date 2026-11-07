@@ -45,7 +45,7 @@ export const PARTNER_LOGIN = {
   submit: 'Sign in →',
   registerPrompt: 'Not registered yet?',
   registerLink: 'Register as a partner',
-  demoNote: 'Sample data: sign in with any registered number, e.g. +65 9000 0001, and the password',
+  demoNote: 'Seeded data: sign in with a seeded number, e.g. +65 9000 0001, and the password',
   successMessage: 'Signed in.',
 };
 
@@ -56,6 +56,7 @@ export const PARTNER_STATUS = {
     { title: 'Registered', description: 'Your details and interview slot are saved.' },
     { title: 'UC Verified', description: 'You passed the Urban Company assessment.' },
     { title: 'Placed', description: 'A recruiter has confirmed your placement.' },
+    { title: 'Joined', description: 'You have started with your employer.' },
   ],
   singaporeMissing: 'Not shared yet. The business team can add it when you have one.',
   noSlot: 'No interview slot was selected. The team will share available dates.',

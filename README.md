@@ -1,46 +1,39 @@
 # recruitment-portal
 
-Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web service, deployed on its own URL, with three role-based areas sharing a domain model:
+Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web app with three role-based areas, all served by `partner-recruitment-service` (sibling repo) through `/api`:
 
 | Area | Route | Who | Login |
 |---|---|---|---|
 | Partner | `/partner` | Cleaners signing up | Primary mobile number + password chosen at sign-up (first come, first served; the number is not verified). Logged-in partners see their status |
-| Recruiter | `/recruiter` | Approved external recruiters | Mocked (demo accounts) until the backend defines recruiter credentials |
-| Business (admin) | `/business` | UC business team | UC Google sign-in through `internal-dashboards`, like the ops/configs dashboards |
+| Recruiter | `/recruiter` | Approved external recruiters | Email + password; accounts are created by the business team, who share a temporary password |
+| Business (admin) | `/business` | UC business team | Google sign-in; the service verifies the ID token and allows `urbancompany.com` / `urbanclap.com` accounts |
 
 The trainer flow is built separately and is not part of this app.
 
 ## The flow this UI implements
 
-1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number owns it; nobody can register it again. They pick an **interview city** (fixed list of Singapore cities in `SINGAPORE_INTERVIEW_CITIES`) and an **hourly slot** and see a thank-you screen; the business team contacts them from there.
-2. **Slots are generated, not published.** `domain/slot.ts` builds one-hour slots from 08:00 to 18:00 (Asia/Singapore) for today and the next two days in every interview city, keeps only start times in the future, and subtracts bookings from a fixed capacity. Slot ids are deterministic (`<city>_<date>_<HH:mm>`), so only bookings are stored.
-3. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), a lead is created in `provider-onboarding-service` and the partner enters the unapproved-partner journey. Mocked here as `candidate.onboarding.leadId`.
-4. **Export.** Admins download signed-up partners as CSV: `Name, Location, Primary mobile`.
-5. **Verified upload.** Admins upload a CSV of verified partners (`primary_mobile` column). Only partners with a valid Singapore number on file are verified and approved; every other row is listed with a reason and available as a fail CSV.
-6. **Lock.** A recruiter locks a verified partner. The lock record carries `lockedAt`, `lockedBy` (`recruiterId`), `lockReleaseAt` and `state` (`active` / `inactive`). A lock stops counting the moment its release time passes; the daily cleanup (mocked by the "Run daily lock cleanup" button) marks it inactive.
-7. **Placement.** The lock owner records aggregator and start date; the business team assigns the hub later.
-
-## Status
-
-UI complete on mock data. Everything except business-team login is served from `src/mocks` and persisted in the browser's `localStorage` (key `recruitment-portal-mock-db-v4`), so an action in one area shows up in the others. No WhatsApp/Hireflix call and no real `provider-onboarding-service` call is made. The backend is a new service with a relational (MySQL) schema, still being designed; `src/api/*` is the seam where its endpoints plug in.
+1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number owns it. They pick an **interview city** and an **hourly slot** (both come from the service) and see a thank-you screen.
+2. **Slots are generated, not published.** The service builds one-hour slots from 08:00 to 18:00 (Asia/Singapore) for today and the next two days in every interview city, keeps only future start times, and subtracts bookings from a fixed capacity.
+3. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), the service creates a lead in `provider-onboarding-service` (stubbed locally); the UI shows it as `candidate.onboarding`.
+4. **Export.** Admins download signed-up partners as CSV from the service (`name, location, primary_mobile`), audited server-side.
+5. **Verified upload.** Admins upload a CSV of verified partners (`primary_mobile` column); the UI parses it and posts the numbers. Only partners with a valid Singapore number on file are verified and approved; every other row is listed with a reason and available as a fail CSV.
+6. **Lock.** A recruiter locks a verified partner; the service returns the lock (`lockedAt`, `lockReleaseAt`, `state`) and the phone numbers. A lock stops counting the moment its release time passes.
+7. **Placement.** The lock owner records the employer name and start date; the partner becomes *placed*. The business team can later mark them *joined* and issue temporary passwords.
 
 ## Run
 
 ```bash
 nvm use            # Node 20+
 npm ci
-npm run dev        # http://localhost:9009
-npm test           # vitest
+npm run dev        # http://localhost:9009, proxies /api to http://localhost:3006
+npm test           # vitest (fetch is stubbed; no backend needed)
 npm run build      # typecheck + production build into dist/
 npm start          # serve dist/ the way the Docker image does (port 3005)
 ```
 
-- Business area: click **Sign in with Google** with your `urbancompany.com` / `urbanclap.com` account. Development mode talks to `dev-ops.urbanclap.com`.
-- Recruiter area: `recruiter.a` or `recruiter.b`, password `Demo123!` (mock).
-- Partner status: `/partner/login` with any seeded primary number (e.g. `+65 9000 0001`) and password `Demo123!`, or a number you registered yourself.
-- `/` lists the areas and has a "Reset sample data" button.
+Start `partner-recruitment-service` first (`npm run dev` there, after `npm run migrate` and `npm run seed`). Seeded sign-ins: partner `+65 9000 0001` / `Demo123!`; recruiter `alex.morgan@brightpath.sg` / `Demo123!`; business: your UC Google account.
 
-Port 9009 is the port the ops dashboard uses locally, so it is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console.
+Port 9009 is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console. In production the app and the service must share one origin (route `/api/*` to the service at the load balancer) so the httpOnly session cookies work.
 
 ## Stack
 
@@ -49,66 +42,26 @@ Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Ro
 ## Structure
 
 ```
-environment/      per-mode config (development / staging / production): sherlock + gateway URLs, Google client id
+environment/      per-mode config (development / staging / production): apiBaseUrl, Google client id
 server.js         express static server used by the Docker image (serves dist/, SPA fallback, /healthcheck)
 src/
   config/         picks environment/<mode>.json from import.meta.env.MODE
   domain/         pure business rules + shared types, no React or I/O
-                  phone.ts (Singapore number rules), reservation.ts (lock state), funnel.ts, slot.ts (generated hourly slots per city)
-  api/            the only layer the UI calls: one file per resource
-                  auth.ts (real Google login + mocked partner and recruiter logins), http.ts (bearer token, envelope, 401)
-                  candidates.ts (sign-up, Singapore number, verified import), reservations.ts (locks, placements, cleanup)
-                  slots.ts (bookable slots per city, slot occupancy per day), people.ts (recruiters, aggregators)
-  mocks/          seed data + localStorage "database" (delete when the backend lands)
-  shared/         auth context + RequireRole guard, PortalShell, LoginShell, GoogleSignIn, tags/tiles, CSV helpers
+                  phone.ts (Singapore number rules), reservation.ts (lock state), funnel.ts, slot.ts (slot id parsing)
+  api/            the only layer the UI calls: one file per resource, all over fetch with same-origin cookies
+                  http.ts (error envelope → user-facing messages), auth.ts (login / me / logout per role)
+                  candidates.ts (sign-up, status, admin partner actions, verified import), reservations.ts (locks, placements)
+                  slots.ts (cities, bookable slots, occupancy), people.ts (recruiters)
+  shared/         auth context + RequireRole guard (restores sessions from the cookie), PortalShell, LoginShell, GoogleSignIn, CSV helpers
   portals/        partner/  recruiter/  business/
   theme/          antd theme tokens + global CSS
-  test/           setup, render helper, fetch stub, session fixtures
+  test/           setup, render helper, route-based fetch stub, fixtures, session fixtures
 ```
 
 Each folder keeps its types in `interface.ts` and its constants in `constant.ts`.
 
 ## Authentication
 
-Business-team login follows the pattern every UC dashboard uses (`dashboard-operations`, `dashboard-configs`):
-
-1. Google Identity Services renders the button (`GoogleSignIn`) with the UC client id from `environment/*.json` and returns an **ID token**.
-2. `signInWithGoogle` calls `PUT {sherlockServerUrl}/auth/google/login` with `{ email, access_token: <id token> }`. `internal-dashboards` verifies it with Google, only accepts `urbanclap.com` / `urbancompany.com` accounts, upserts the dashboard user and returns a JWT.
-3. The JWT is stored in the `token` cookie (one year, same cookie name as the other dashboards). `api/http.ts` sends it as `Authorization: Bearer …` on every call and turns a 401 into a sign-out.
-4. `GET {sherlockApiUrl}user/me` returns the user's name, email and `team` (access names from `access-control-service`). `RequireRole` restores the session from the cookie on reload.
-5. `REQUIRED_BUSINESS_ACCESSES` in `src/shared/auth/constant.ts` is empty, so any UC account can enter for now. Once the access name for this dashboard exists in access-control, add it there and users without it get the "no access" screen.
-
-**Recruiters** are external users: the Google flow rejects non-UC domains and the email/password strategy in `internal-dashboards` is disabled outside development. Their credential system belongs to the new backend; until then `signInRecruiter` is a mock against the seed data.
-
-**Partners** set a password at sign-up and sign in with their primary mobile number to see their status (`/partner/login` → `/partner/status`). The number is never verified: whoever registers it first owns it. The mock keeps passwords in `partnerAccounts` next to the seed data; the backend stores an argon2id hash and resets are done by admins.
-
-## Hosting
-
-The live React dashboards are built into static files, served by a small express server inside a Docker image, registered as a platform service and deployed by `platform-orchestration-service` to ECS behind a load balancer and DNS name. This repo follows that shape:
-
-- `Dockerfile`: multi-stage, `npm run build -- --mode $BUILD_MODE` then `node server.js` on port 3005 (`PORT` overrides). The runtime stage installs only `dependencies` (express); UI libraries are `devDependencies` because Vite bundles them.
-- `.gitlab-ci.yml`: platform template plus install/typecheck/test/build on merge requests and master.
-- `environment/<mode>.json`: which `internal-dashboards` and gateway the build talks to.
-
-To get the URL live, the platform team needs to: register a service id with the `initiate-service` templates in `platform-orchestration-service` and a Jenkins job; create the load balancer, DNS record and TLS certificate and add that origin to the UC Google OAuth client; and mirror `node:20` into the internal ECR registry (CI images there are pinned at Node 14; Vite 8 needs Node 20+).
-
-## Plugging in the backend
-
-Components never touch `mocks/`. They call `src/api/*` (directly or through TanStack Query), and those functions currently wrap `mockQuery` / `mockMutation`. To go live:
-
-1. Replace each `src/api/*.ts` function body with a `request(...)` call from `api/http.ts` (keep the signature).
-2. Move the rules in `src/domain/` that must be authoritative (lock exclusivity and release time, slot generation and capacity, Singapore-number validation) to the backend. Keep the client copies only for UI hints.
-3. Delete `src/mocks/` and the recruiter demo accounts.
-
-Things the backend must own: the `provider-onboarding-service` calls (`createLead` when a Singapore number first appears, `bulkApproveJourney` on verified upload), recruiter access to contact details and lock exclusivity (distributed lock, direct links, rate limits, access logging), the daily lock cleanup, and the fail CSV for verified uploads.
-
-## Open questions from the PRD
-
-- Recruiter credentials for external users (see Authentication).
-- Partner password reset: the number is not verified, so there is no self-service reset; an admin-issued temporary password is assumed.
-- Final list of interview cities, centre addresses and capacity per hourly slot (4 in the mock).
-- Lock window length (48h in the mock) and whether a recruiter can re-lock a partner they let expire.
-- Category, city and source values sent to `createLead`.
-- Whether offline-test failures should be recorded or only passes uploaded.
-- Whether "employer name" at placement is free text or a fixed aggregator list.
-- Final consent wording (legal).
+- **Partner / recruiter.** `POST /api/<role>/auth/login` sets an httpOnly session cookie; the UI keeps the display name in `sessionStorage` and `RequireRole` calls `GET /api/<role>/auth/me` to restore a session after a reload. Sign-out calls the logout endpoint and clears the stored session.
+- **Business.** Google Identity Services renders the button (`GoogleSignIn`) and returns an ID token; `POST /api/admin/auth/google` verifies it in the service (audience = the client id in `environment/*.json`, allowed email domains) and sets `admin_session`.
+- `REQUIRED_BUSINESS_ACCESSES` in `src/shared/auth/constant.ts` is empty, so any allowed UC account can enter for now.

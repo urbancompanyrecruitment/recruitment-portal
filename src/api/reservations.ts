@@ -1,186 +1,51 @@
-import { LOCK_TTL_MS } from '@/domain/constant';
-import { toIsoDate } from '@/domain/format';
-import { InactiveReason, LockState, Reservation, ReservationEvent, ReservationEventType } from '@/domain/interface';
-import { blocksAvailability, isLockActive, isLockExpired } from '@/domain/reservation';
-import { MAX_RESERVATION_EVENTS } from '@/mocks/constant';
-import { deactivateExpiredLocks, resetDb } from '@/mocks/db';
-import { MockDb } from '@/mocks/interface';
-import { findOrThrow, mockMutation, mockQuery } from './client';
-import { API_ERROR } from './constant';
-import { AvailableCandidate, HubUpdateInput, PlacementInput, ReservedCandidate } from './interface';
+import { AdminReservation, Reservation } from '@/domain/interface';
+import { API_PATH } from './constant';
+import { request } from './http';
+import { AvailableCandidate, BackendAdminLock, BackendLock, BackendLockedPartner, PlacementInput, ReservedCandidate } from './interface';
 
-const appendEvent = (
-  db: MockDb,
-  type: ReservationEventType,
-  candidateId: string,
-  recruiterId?: string,
-): ReservationEvent[] =>
-  [...db.reservationEvents, { id: crypto.randomUUID(), type, candidateId, recruiterId, at: Date.now() }].slice(
-    -MAX_RESERVATION_EVENTS,
-  );
+const toEpoch = (value: string | undefined): number | undefined => (value ? Date.parse(value) : undefined);
 
-const replaceReservation = (db: MockDb, next: Reservation): Reservation[] =>
-  db.reservations.map(reservation => (reservation.candidateId === next.candidateId ? next : reservation));
+export const toReservation = (lock: BackendLock): Reservation => ({
+  id: lock.id,
+  candidateId: lock.partnerId,
+  recruiterId: lock.recruiterId,
+  lockedAt: Date.parse(lock.lockedAt),
+  lockReleaseAt: Date.parse(lock.lockReleaseAt),
+  state: lock.state,
+  inactiveReason: lock.inactiveReason,
+  inactiveAt: toEpoch(lock.inactiveAt),
+  employerName: lock.employerName,
+  startDate: lock.startDate,
+  placementRecordedAt: toEpoch(lock.placementRecordedAt),
+});
 
-const findOwnReservation = (db: MockDb, candidateId: string, recruiterId: string, now: number): Reservation => {
-  const reservation = findOrThrow(
-    db.reservations,
-    item => item.candidateId === candidateId && item.recruiterId === recruiterId,
-    API_ERROR.reservationNotFound,
-  );
+const toReservedCandidate = (locked: BackendLockedPartner): ReservedCandidate => ({
+  candidate: locked.partner,
+  reservation: toReservation(locked.lock),
+});
 
-  if (!reservation.aggregatorId && !isLockActive(reservation, now)) throw new Error(API_ERROR.lockExpired);
-
-  return reservation;
-};
-
-export const listReservations = (): Promise<Reservation[]> => mockQuery(db => db.reservations);
-
-export const listReservationEvents = (): Promise<ReservationEvent[]> =>
-  mockQuery(db => [...db.reservationEvents].sort((a, b) => b.at - a.at));
-
-export const listAvailableCandidates = (): Promise<AvailableCandidate[]> =>
-  mockQuery(db => {
-    const now = Date.now();
-
-    return db.candidates
-      .filter(candidate => candidate.verified)
-      .filter(
-        candidate =>
-          !db.reservations.some(
-            reservation => reservation.candidateId === candidate.id && blocksAvailability(reservation, now),
-          ),
-      )
-      .map(({ id, name, country, city, nationality, category, yearsOfExperience, bio, verified }) => ({
-        id,
-        name,
-        country,
-        city,
-        nationality,
-        category,
-        yearsOfExperience,
-        bio,
-        verified,
-      }));
-  });
-
-export const listMyReservations = (recruiterId: string): Promise<ReservedCandidate[]> =>
-  mockQuery(db =>
-    db.reservations
-      .filter(reservation => reservation.recruiterId === recruiterId)
-      .map(reservation => ({
-        reservation,
-        candidate: findOrThrow(db.candidates, candidate => candidate.id === reservation.candidateId, API_ERROR.candidateNotFound),
-      })),
-  );
-
-export const getReservedCandidate = (candidateId: string, recruiterId: string): Promise<ReservedCandidate> =>
-  mockQuery(db => ({
-    reservation: findOwnReservation(db, candidateId, recruiterId, Date.now()),
-    candidate: findOrThrow(db.candidates, candidate => candidate.id === candidateId, API_ERROR.candidateNotFound),
+export const listReservations = async (): Promise<AdminReservation[]> =>
+  (await request<BackendAdminLock[]>(API_PATH.adminLocks)).map(lock => ({
+    ...toReservation(lock),
+    candidateName: lock.partnerName,
+    recruiterName: lock.recruiterName,
+    recruiterCompany: lock.recruiterCompany,
   }));
 
-export const reserveCandidate = (candidateId: string, recruiterId: string): Promise<Reservation> =>
-  mockMutation(db => {
-    const candidate = db.candidates.find(item => item.id === candidateId);
+export const listAvailableCandidates = (): Promise<AvailableCandidate[]> =>
+  request<AvailableCandidate[]>(API_PATH.availablePartners);
 
-    if (!candidate?.verified) throw new Error(API_ERROR.profileUnavailable);
+export const listMyReservations = async (): Promise<ReservedCandidate[]> =>
+  (await request<BackendLockedPartner[]>(API_PATH.myLocks)).map(toReservedCandidate);
 
-    const now = Date.now();
-    const existing = db.reservations.find(reservation => reservation.candidateId === candidateId);
-    const blocked = existing ? blocksAvailability(existing, now) : false;
+export const getReservedCandidate = async (candidateId: string): Promise<ReservedCandidate> =>
+  toReservedCandidate(await request<BackendLockedPartner>(API_PATH.lockedPartner(candidateId)));
 
-    if (existing && blocked && existing.recruiterId !== recruiterId) throw new Error(API_ERROR.reservedByOther);
+export const reserveCandidate = async (candidateId: string): Promise<ReservedCandidate> =>
+  toReservedCandidate(await request<BackendLockedPartner>(API_PATH.lockPartner(candidateId), { method: 'POST' }));
 
-    if (existing && blocked) return { db, result: existing };
+export const savePlacement = async (candidateId: string, input: PlacementInput): Promise<Reservation> =>
+  toReservation(await request<BackendLock>(API_PATH.placement(candidateId), { method: 'POST', body: input }));
 
-    const reservation: Reservation = {
-      candidateId,
-      recruiterId,
-      lockedAt: now,
-      lockReleaseAt: now + LOCK_TTL_MS,
-      state: LockState.Active,
-    };
-
-    return {
-      db: {
-        ...db,
-        reservations: [...db.reservations.filter(item => item.candidateId !== candidateId), reservation],
-        reservationEvents: appendEvent(db, ReservationEventType.Opened, candidateId, recruiterId),
-      },
-      result: reservation,
-    };
-  });
-
-export const savePlacement = (candidateId: string, recruiterId: string, input: PlacementInput): Promise<Reservation> =>
-  mockMutation(db => {
-    const now = Date.now();
-    const current = findOwnReservation(db, candidateId, recruiterId, now);
-    const isKnownAggregator = db.aggregators.some(aggregator => aggregator.id === input.aggregatorId);
-
-    if (!isKnownAggregator || input.startDate < toIsoDate()) throw new Error(API_ERROR.invalidPlacement);
-
-    const next: Reservation = {
-      ...current,
-      ...input,
-      state: LockState.Inactive,
-      inactiveReason: InactiveReason.Placed,
-      inactiveAt: current.inactiveAt ?? now,
-    };
-
-    return {
-      db: {
-        ...db,
-        reservations: replaceReservation(db, next),
-        reservationEvents: appendEvent(db, ReservationEventType.PlacementSaved, candidateId, recruiterId),
-      },
-      result: next,
-    };
-  });
-
-export const updateHub = (candidateId: string, input: HubUpdateInput): Promise<Reservation> =>
-  mockMutation(db => {
-    const current = findOrThrow(
-      db.reservations,
-      reservation => reservation.candidateId === candidateId,
-      API_ERROR.reservationNotFound,
-    );
-    const next = { ...current, ...input };
-
-    return {
-      db: {
-        ...db,
-        reservations: replaceReservation(db, next),
-        reservationEvents: appendEvent(db, ReservationEventType.HubUpdated, candidateId),
-      },
-      result: next,
-    };
-  });
-
-export const runLockCleanup = (): Promise<number> =>
-  mockMutation(db => {
-    const now = Date.now();
-    const expired = db.reservations.filter(reservation => isLockExpired(reservation, now)).length;
-
-    return { db: deactivateExpiredLocks(db, now), result: expired };
-  });
-
-export const expireUnassignedReservations = (recruiterId: string): Promise<number> =>
-  mockMutation(db => {
-    const now = Date.now();
-    const due = db.reservations.filter(
-      reservation => reservation.recruiterId === recruiterId && isLockActive(reservation, now),
-    );
-    const forced = {
-      ...db,
-      reservations: db.reservations.map(reservation =>
-        due.includes(reservation) ? { ...reservation, lockReleaseAt: now - 1 } : reservation,
-      ),
-    };
-
-    return { db: deactivateExpiredLocks(forced, now), result: due.length };
-  });
-
-export const resetMockData = async (): Promise<void> => {
-  resetDb();
-};
+export const releaseReservation = async (candidateId: string): Promise<Reservation> =>
+  toReservation(await request<BackendLock>(API_PATH.release(candidateId), { method: 'POST' }));

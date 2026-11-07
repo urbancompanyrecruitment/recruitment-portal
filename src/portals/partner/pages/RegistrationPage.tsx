@@ -23,24 +23,24 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registerCandidate } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
+import { useInterviewCities } from '@/api/hooks';
 import { RegistrationResult } from '@/api/interface';
 import { listBookableSlotsFor } from '@/api/slots';
 import {
-  COOKING_FREQUENCIES,
+  COOKING_FREQUENCY_OPTIONS,
   COUNTRIES,
   DAY_DATE_FORMAT,
   MAX_PARTNER_AGE,
   MIN_PARTNER_AGE,
   PASSWORD_MIN_LENGTH,
   PHONE_PATTERN,
-  RECRUITMENT_SOURCES,
-  SINGAPORE_INTERVIEW_CITIES,
+  RECRUITMENT_SOURCE_OPTIONS,
   SINGAPORE_PHONE_PATTERN,
   SOURCES_REQUIRING_REFERRER,
-  YES_NO,
+  YES_NO_OPTIONS,
 } from '@/domain/constant';
 import { isSingaporePhone } from '@/domain/phone';
-import { getInterviewCity } from '@/domain/slot';
+import { findCity } from '@/domain/slot';
 import { Notice, PageHeader } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import {
@@ -71,6 +71,7 @@ export const RegistrationPage = () => {
   const slotId = Form.useWatch('slotId', form);
   const source = Form.useWatch('source', form);
   const primaryPhone = Form.useWatch('primaryPhone', form) ?? '';
+  const cities = useInterviewCities();
   const slots = useQuery({
     queryKey: QUERY_KEY.bookableSlots(interviewCity ?? ''),
     queryFn: () => listBookableSlotsFor(interviewCity),
@@ -78,14 +79,14 @@ export const RegistrationPage = () => {
   });
   const register = useAppMutation(registerCandidate, REGISTRATION_SUCCESS_MESSAGE);
   const selectedSlot = slots.data?.find(slot => slot.id === slotId);
-  const selectedCity = getInterviewCity(interviewCity ?? '');
+  const selectedCity = findCity(cities.data ?? [], interviewCity);
   const referrerRequired = SOURCES_REQUIRING_REFERRER.includes(source);
   const primaryIsSingapore = isSingaporePhone(primaryPhone);
   const slotDays = [...new Set(slots.data?.map(slot => slot.date) ?? [])];
 
   if (registration) {
     const { candidate, slot } = registration;
-    const city = getInterviewCity(candidate.interviewCity);
+    const city = findCity(cities.data ?? [], candidate.interviewCity);
 
     return (
       <Card>
@@ -154,7 +155,9 @@ export const RegistrationPage = () => {
 
           if ('primaryPhone' in changed && copyPrimary) form.setFieldValue('singaporePhone', changed.primaryPhone);
         }}
-        onFinish={({ confirmPassword, ...values }) => register.mutate(values, { onSuccess: setRegistration })}
+        onFinish={({ confirmPassword, ...values }) =>
+          register.mutate({ ...values, consent: true }, { onSuccess: setRegistration })
+        }
       >
         <Row gutter={[23, 23]}>
           <Col xs={24} lg={13}>
@@ -260,7 +263,7 @@ export const RegistrationPage = () => {
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="source" label="Where did you hear about us?" rules={[{ required: true }]}>
-                    <Select placeholder="Select" options={RECRUITMENT_SOURCES.map(value => ({ value, label: value }))} />
+                    <Select placeholder="Select" options={RECRUITMENT_SOURCE_OPTIONS} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -277,12 +280,12 @@ export const RegistrationPage = () => {
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="comfortableWithDogs" label="Comfortable around dogs?" rules={[{ required: true }]}>
-                    <Radio.Group optionType="button" options={YES_NO} />
+                    <Radio.Group optionType="button" options={YES_NO_OPTIONS} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="deepCleaningExperience" label="Deep-cleaning experience?" rules={[{ required: true }]}>
-                    <Radio.Group optionType="button" options={YES_NO} />
+                    <Radio.Group optionType="button" options={YES_NO_OPTIONS} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -291,7 +294,7 @@ export const RegistrationPage = () => {
                     label="How often did you cook in previous work?"
                     rules={[{ required: true }]}
                   >
-                    <Select placeholder="Select" options={COOKING_FREQUENCIES.map(value => ({ value, label: value }))} />
+                    <Select placeholder="Select" options={COOKING_FREQUENCY_OPTIONS} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -324,7 +327,8 @@ export const RegistrationPage = () => {
               >
                 <Select
                   placeholder="Select"
-                  options={SINGAPORE_INTERVIEW_CITIES.map(city => ({ value: city.key, label: city.name }))}
+                  loading={cities.isLoading}
+                  options={cities.data?.map(city => ({ value: city.key, label: city.name }))}
                 />
               </Form.Item>
               {!interviewCity && (
@@ -337,7 +341,7 @@ export const RegistrationPage = () => {
                 <Alert
                   type="info"
                   showIcon
-                  title="No slots are available in the next days. You can still register — the team will share new dates."
+                  title="No slots are available in the next days. Please try again later or choose another city."
                   style={{ marginBottom: 20 }}
                 />
               )}

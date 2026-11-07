@@ -9,27 +9,29 @@ import {
   Descriptions,
   Flex,
   Form,
+  Input,
+  Popconfirm,
   Result,
   Row,
-  Select,
   Skeleton,
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import { QUERY_KEY } from '@/api/constant';
-import { useAggregators } from '@/api/hooks';
 import { PlacementInput } from '@/api/interface';
-import { getReservedCandidate, savePlacement } from '@/api/reservations';
-import { DATE_FORMAT } from '@/domain/constant';
+import { getReservedCandidate, releaseReservation, savePlacement } from '@/api/reservations';
+import { COOKING_FREQUENCY_LABEL, DATE_FORMAT } from '@/domain/constant';
 import { formatDate, formatDateTime, toIsoDate } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
 import { formatLockStatus, getReservationStatus } from '@/domain/reservation';
 import { useSessionUser } from '@/shared/auth/AuthProvider';
 import { CandidateAvatar, Notice, PageHeader, VerificationTag } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
-import { RECRUITER_MESSAGE, RECRUITER_PATH, RESERVATION_REFETCH_MS, WHITESPACE } from '../constant';
+import { LOCK_NOTE, RECRUITER_MESSAGE, RECRUITER_PATH, WHITESPACE } from '../constant';
 import { PlacementFormValues } from '../interface';
+
+const yesNo = (value: boolean) => (value ? 'Yes' : 'No');
 
 export const CandidateProfilePage = () => {
   const { candidateId = '' } = useParams();
@@ -38,14 +40,10 @@ export const CandidateProfilePage = () => {
   const { message } = App.useApp();
   const profile = useQuery({
     queryKey: QUERY_KEY.candidateProfile(candidateId, user.id),
-    queryFn: () => getReservedCandidate(candidateId, user.id),
-    refetchInterval: RESERVATION_REFETCH_MS,
+    queryFn: () => getReservedCandidate(candidateId),
   });
-  const aggregators = useAggregators();
-  const save = useAppMutation(
-    (input: PlacementInput) => savePlacement(candidateId, user.id, input),
-    RECRUITER_MESSAGE.placementSaved,
-  );
+  const save = useAppMutation((input: PlacementInput) => savePlacement(candidateId, input), RECRUITER_MESSAGE.placementSaved);
+  const release = useAppMutation(() => releaseReservation(candidateId), RECRUITER_MESSAGE.released);
 
   if (profile.error) {
     return (
@@ -67,28 +65,27 @@ export const CandidateProfilePage = () => {
   if (!profile.data) return <Skeleton active />;
 
   const { candidate, reservation } = profile.data;
-  const isAssigned = getReservationStatus(reservation) === ReservationStatus.AggregatorAssigned;
-  const aggregatorName = aggregators.data?.find(aggregator => aggregator.id === reservation.aggregatorId)?.name;
+  const isPlaced = getReservationStatus(reservation) === ReservationStatus.Placed;
 
   return (
     <>
       <PageHeader
         back={{ to: RECRUITER_PATH.myCandidates, label: 'Back to my candidates' }}
         title={candidate.name}
-        subtitle="Contact the provider, then complete the start date and aggregator."
+        subtitle="Contact the partner, then save the employer and start date."
       />
-      {isAssigned ? (
+      {isPlaced ? (
         <Notice tone="success">
-          <strong>Aggregator assigned</strong> · Placement saved — UC hub information appears below when available.
+          <strong>Placed</strong> · Placement saved on {formatDate(reservation.placementRecordedAt ? dayjs(reservation.placementRecordedAt).toISOString() : undefined)}.
+          The business team will track the joining.
         </Notice>
       ) : (
         <Notice>
           <strong>Locked exclusively for your account</strong>
           <div>
-            Assign an approved aggregator by {formatDateTime(reservation.lockReleaseAt)} ·{' '}
-            {formatLockStatus(reservation, profile.dataUpdatedAt)}.
+            Save the placement by {formatDateTime(reservation.lockReleaseAt)} · {formatLockStatus(reservation, profile.dataUpdatedAt)}.
           </div>
-          <div className="small">Sample 48-hour lock; the business time limit is still to be confirmed.</div>
+          <div className="small">{LOCK_NOTE}</div>
         </Notice>
       )}
       <Row gutter={[18, 18]}>
@@ -101,7 +98,7 @@ export const CandidateProfilePage = () => {
                   <Typography.Title level={4} style={{ margin: 0 }}>
                     {candidate.name}
                   </Typography.Title>
-                  <div className="muted small">{candidate.category}</div>
+                  <div className="muted small">{candidate.nationality}</div>
                 </div>
               </Flex>
               <VerificationTag verified={candidate.verified} />
@@ -109,7 +106,7 @@ export const CandidateProfilePage = () => {
             <div className="recruiter-phone-box">
               <div className="muted small">Primary mobile / WhatsApp</div>
               <Flex justify="space-between" align="center" gap={12} wrap>
-                <a className="recruiter-phone-link" href={`tel:${candidate.primaryPhone.replace(WHITESPACE, '')}`}>
+                <a className="recruiter-phone-link" href={`tel:${(candidate.primaryPhone ?? '').replace(WHITESPACE, '')}`}>
                   {candidate.primaryPhone}
                 </a>
                 <Button
@@ -117,7 +114,7 @@ export const CandidateProfilePage = () => {
                   icon={<CopyOutlined />}
                   onClick={() =>
                     Promise.resolve()
-                      .then(() => navigator.clipboard.writeText(candidate.primaryPhone))
+                      .then(() => navigator.clipboard.writeText(candidate.primaryPhone ?? ''))
                       .then(() => message.success(RECRUITER_MESSAGE.phoneCopied))
                       .catch(() => message.error(RECRUITER_MESSAGE.phoneCopyFailed))
                   }
@@ -132,12 +129,15 @@ export const CandidateProfilePage = () => {
               items={[
                 { key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone ?? 'Not shared yet' },
                 { key: 'location', label: 'Current location', children: `${candidate.city}, ${candidate.country}` },
-                { key: 'nationality', label: 'Nationality', children: candidate.nationality },
-                { key: 'experience', label: 'Experience', children: `${candidate.yearsOfExperience} years` },
+                { key: 'age', label: 'Age', children: `${candidate.age} years` },
+                { key: 'cooking', label: 'Cooking in previous work', children: COOKING_FREQUENCY_LABEL[candidate.cookingFrequency] },
+                { key: 'deep', label: 'Deep-cleaning experience', children: yesNo(candidate.deepCleaningExperience) },
+                { key: 'dogs', label: 'Comfortable around dogs', children: yesNo(candidate.comfortableWithDogs) },
               ]}
             />
-            <Typography.Paragraph style={{ margin: '14px 0 18px' }}>{candidate.bio}</Typography.Paragraph>
-            <div className="recruiter-fact-label">UC verification</div>
+            <div className="recruiter-fact-label" style={{ marginTop: 14 }}>
+              UC verification
+            </div>
             <div className="small" style={{ marginTop: 8 }}>
               {candidate.verifiedAt ? `Verified on ${formatDate(candidate.verifiedAt)}` : 'Not verified'}
             </div>
@@ -149,20 +149,20 @@ export const CandidateProfilePage = () => {
               Please contact the candidate and fill in the required details.
             </Typography.Paragraph>
             <Form<PlacementFormValues>
-              key={candidate.id}
+              key={reservation.id}
               layout="vertical"
               initialValues={{
                 startDate: reservation.startDate ? dayjs(reservation.startDate) : undefined,
-                aggregatorId: reservation.aggregatorId,
+                employerName: reservation.employerName,
               }}
               onFinish={values =>
-                save.mutate({ startDate: toIsoDate(values.startDate), aggregatorId: values.aggregatorId })
+                save.mutate({ startDate: toIsoDate(values.startDate), employerName: values.employerName.trim() })
               }
             >
               <Form.Item
                 name="startDate"
                 label="Planned joining / start date"
-                extra="Confirm this date with the provider before saving."
+                extra="Confirm this date with the partner before saving."
                 rules={[{ required: true, message: 'Select the planned start date' }]}
               >
                 <DatePicker
@@ -172,46 +172,27 @@ export const CandidateProfilePage = () => {
                 />
               </Form.Item>
               <Form.Item
-                name="aggregatorId"
-                label="UC-linked aggregator / employer"
+                name="employerName"
+                label="Employer"
                 extra="The company under which the work permit will be processed."
-                rules={[{ required: true, message: 'Select an approved aggregator' }]}
+                rules={[{ required: true, whitespace: true, message: 'Enter the employer name' }]}
               >
-                <Select
-                  placeholder="Select an approved aggregator"
-                  loading={aggregators.isLoading}
-                  options={aggregators.data?.map(aggregator => ({ value: aggregator.id, label: aggregator.name }))}
-                />
+                <Input placeholder="e.g. CleanSpace Services" />
               </Form.Item>
-              <Button type="primary" htmlType="submit" loading={save.isPending}>
-                {isAssigned ? 'Update placement' : 'Save placement ✓'}
-              </Button>
+              <Flex gap={8} wrap>
+                <Button type="primary" htmlType="submit" loading={save.isPending}>
+                  {isPlaced ? 'Update placement' : 'Save placement ✓'}
+                </Button>
+                {!isPlaced && (
+                  <Popconfirm title="Release this profile back to the pool?" onConfirm={() => release.mutate(undefined)}>
+                    <Button loading={release.isPending}>Release lock</Button>
+                  </Popconfirm>
+                )}
+              </Flex>
             </Form>
-            {isAssigned ? (
-              <div className="recruiter-hub-panel">
-                <Typography.Title level={5} style={{ marginTop: 0 }}>
-                  {reservation.hub ? 'Hub & joining instructions' : 'Hub allocation pending'}
-                </Typography.Title>
-                <Descriptions
-                  column={1}
-                  size="small"
-                  items={[
-                    { key: 'joining', label: 'Joining date', children: formatDate(reservation.startDate) },
-                    { key: 'aggregator', label: 'Aggregator', children: aggregatorName ?? '—' },
-                    { key: 'area', label: 'Assigned area', children: reservation.hub ?? 'To be updated by UC' },
-                  ]}
-                />
-                <Typography.Paragraph style={{ margin: '12px 0 8px' }}>
-                  {reservation.hubInstructions ?? 'UC will update the assigned hub and stay-location instructions.'}
-                </Typography.Paragraph>
-                <div className="small muted">
-                  Recruiters cannot edit the hub allocation. Hub updates are shared two weeks before joining.
-                </div>
-              </div>
-            ) : (
+            {!isPlaced && (
               <Typography.Paragraph type="secondary" className="small" style={{ margin: '24px 0 0' }}>
-                Opening or contacting the provider alone does not stop expiry. Assign an approved aggregator before the
-                deadline.
+                Opening or contacting the partner alone does not stop expiry. Save the placement before the deadline.
               </Typography.Paragraph>
             )}
           </Card>

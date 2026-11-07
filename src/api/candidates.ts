@@ -1,142 +1,63 @@
-import dayjs from 'dayjs';
-import { Candidate, ImportRowOutcome, ProviderCategory } from '@/domain/interface';
-import { getPartnerStage } from '@/domain/partner';
-import { isValidSingaporePhone, phoneDigits } from '@/domain/phone';
-import { getInterviewCity, listBookableSlots, parseSlotId } from '@/domain/slot';
-import { MOCK_LEAD_ID_PREFIX, VERIFIED_BY_IMPORT } from '@/mocks/constant';
-import { findOrThrow, mockMutation, mockQuery } from './client';
-import { API_ERROR } from './constant';
-import { ImportRow, PartnerStatus, RegistrationInput, RegistrationResult, VerifiedImportResult } from './interface';
+import { Candidate } from '@/domain/interface';
+import { API_PATH } from './constant';
+import { request, requestText } from './http';
+import {
+  BackendImportResult,
+  BackendPartnerStatus,
+  BackendSignUpResult,
+  CandidateFilters,
+  PartnerStatus,
+  RegistrationInput,
+  RegistrationResult,
+  TemporaryPasswordResult,
+  VerifiedImportResult,
+} from './interface';
 
-const createLead = (candidate: Candidate): Candidate => ({
-  ...candidate,
-  onboarding: { leadId: `${MOCK_LEAD_ID_PREFIX}${candidate.id.slice(0, 8)}`, leadCreatedAt: new Date().toISOString() },
-});
+const toQuery = (filters: CandidateFilters): string => {
+  const params = new URLSearchParams(
+    Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString();
 
-const resolveImportOutcome = (
-  digits: string,
-  index: number,
-  digitsList: string[],
-  candidate: Candidate | undefined,
-): ImportRowOutcome => {
-  if (!digits) return ImportRowOutcome.InvalidPhone;
-
-  if (digitsList.indexOf(digits) !== index) return ImportRowOutcome.DuplicateInFile;
-
-  if (!candidate) return ImportRowOutcome.NotFound;
-
-  if (candidate.verified) return ImportRowOutcome.AlreadyVerified;
-
-  if (!candidate.singaporePhone || !isValidSingaporePhone(candidate.singaporePhone) || !candidate.onboarding) {
-    return ImportRowOutcome.NoSingaporeNumber;
-  }
-
-  return ImportRowOutcome.Accepted;
+  return params ? `?${params}` : '';
 };
 
-export const listCandidates = (): Promise<Candidate[]> => mockQuery(db => db.candidates);
+export const listCandidates = (filters: CandidateFilters = {}): Promise<Candidate[]> =>
+  request<Candidate[]>(`${API_PATH.adminPartners}${toQuery(filters)}`);
 
-export const registerCandidate = ({ password, ...input }: RegistrationInput): Promise<RegistrationResult> =>
-  mockMutation(db => {
-    const primaryDigits = phoneDigits(input.primaryPhone);
-    const singaporePhone = input.singaporePhone?.trim() || undefined;
+export const exportCandidatesCsv = (filters: CandidateFilters = {}): Promise<string> =>
+  requestText(`${API_PATH.adminPartnersExport}${toQuery(filters)}`);
 
-    if (db.candidates.some(candidate => phoneDigits(candidate.primaryPhone) === primaryDigits)) {
-      throw new Error(API_ERROR.duplicatePhone);
-    }
+export const registerCandidate = async (input: RegistrationInput): Promise<RegistrationResult> => {
+  const result = await request<BackendSignUpResult>(API_PATH.signUp, { method: 'POST', body: input });
 
-    if (singaporePhone && !isValidSingaporePhone(singaporePhone)) throw new Error(API_ERROR.invalidSingaporePhone);
+  return { candidate: result.partner, slot: result.slot };
+};
 
-    if (!getInterviewCity(input.interviewCity)) throw new Error(API_ERROR.unknownCity);
+export const getPartnerStatus = async (): Promise<PartnerStatus> => {
+  const status = await request<BackendPartnerStatus>(API_PATH.partnerStatus);
 
-    const bookable = listBookableSlots(input.interviewCity, db.candidates, dayjs());
-
-    if (input.slotId && !bookable.some(slot => slot.id === input.slotId)) throw new Error(API_ERROR.slotUnavailable);
-
-    const registered: Candidate = {
-      ...input,
-      singaporePhone,
-      id: crypto.randomUUID(),
-      category: ProviderCategory.NotAssigned,
-      yearsOfExperience: 0,
-      bio: `Cooking: ${input.cookingFrequency}. Deep cleaning: ${input.deepCleaningExperience}. Comfortable around dogs: ${input.comfortableWithDogs}.`,
-      verified: false,
-      createdAt: new Date().toISOString(),
-    };
-    const candidate = singaporePhone ? createLead(registered) : registered;
-
-    return {
-      db: {
-        ...db,
-        candidates: [...db.candidates, candidate],
-        partnerAccounts: [...db.partnerAccounts, { candidateId: candidate.id, password }],
-      },
-      result: { candidate, slot: candidate.slotId ? parseSlotId(candidate.slotId) : undefined },
-    };
-  });
-
-export const getPartnerStatus = (candidateId: string): Promise<PartnerStatus> =>
-  mockQuery(db => {
-    const candidate = findOrThrow(db.candidates, item => item.id === candidateId, API_ERROR.candidateNotFound);
-    const reservation = db.reservations.find(item => item.candidateId === candidateId);
-
-    return {
-      candidate,
-      slot: candidate.slotId ? parseSlotId(candidate.slotId) : undefined,
-      stage: getPartnerStage(candidate, reservation),
-    };
-  });
+  return { candidate: status.partner, slot: status.slot, stage: status.partner.stage };
+};
 
 export const updateSingaporePhone = (candidateId: string, singaporePhone: string): Promise<Candidate> =>
-  mockMutation(db => {
-    const trimmed = singaporePhone.trim();
+  request<Candidate>(API_PATH.singaporePhone(candidateId), { method: 'PUT', body: { singaporePhone } });
 
-    if (!isValidSingaporePhone(trimmed)) throw new Error(API_ERROR.invalidSingaporePhone);
+export const resetPartnerPassword = (candidateId: string): Promise<TemporaryPasswordResult> =>
+  request<TemporaryPasswordResult>(API_PATH.resetPassword(candidateId), { method: 'POST' });
 
-    const current = findOrThrow(db.candidates, candidate => candidate.id === candidateId, API_ERROR.candidateNotFound);
-    const updated = { ...current, singaporePhone: trimmed };
-    const next = current.onboarding ? updated : createLead(updated);
+export const markCandidateJoined = (candidateId: string): Promise<Candidate> =>
+  request<Candidate>(API_PATH.markJoined(candidateId), { method: 'POST' });
 
-    return {
-      db: { ...db, candidates: db.candidates.map(candidate => (candidate.id === candidateId ? next : candidate)) },
-      result: next,
-    };
+export const importVerifiedCandidates = async (primaryPhones: string[], fileName: string): Promise<VerifiedImportResult> => {
+  const result = await request<BackendImportResult>(API_PATH.verificationImports, {
+    method: 'POST',
+    body: { fileName, primaryPhones },
   });
 
-export const importVerifiedCandidates = (primaryPhones: string[], fileName: string): Promise<VerifiedImportResult> =>
-  mockMutation(db => {
-    const digitsList = primaryPhones.map(phoneDigits);
-    const rows: ImportRow[] = primaryPhones.map((raw, index) => {
-      const digits = digitsList[index];
-      const candidate = db.candidates.find(item => phoneDigits(item.primaryPhone) === digits);
-
-      return {
-        rowNumber: index + 1,
-        primaryPhone: raw.trim(),
-        outcome: resolveImportOutcome(digits, index, digitsList, candidate),
-        candidateId: candidate?.id,
-      };
-    });
-    const acceptedIds = new Set(rows.filter(row => row.outcome === ImportRowOutcome.Accepted).map(row => row.candidateId));
-    const verifiedAt = new Date().toISOString();
-    const candidates = db.candidates.map(candidate =>
-      acceptedIds.has(candidate.id)
-        ? {
-            ...candidate,
-            verified: true,
-            verifiedBy: VERIFIED_BY_IMPORT,
-            verifiedAt,
-            onboarding: candidate.onboarding && { ...candidate.onboarding, approvedAt: verifiedAt },
-          }
-        : candidate,
-    );
-
-    return {
-      db: { ...db, candidates },
-      result: {
-        fileName,
-        counts: { rows: rows.length, accepted: acceptedIds.size, failed: rows.length - acceptedIds.size },
-        rows,
-      },
-    };
-  });
+  return {
+    importId: result.importId,
+    fileName: result.fileName,
+    counts: result.counts,
+    rows: result.rows.map(({ partnerId, ...row }) => ({ ...row, candidateId: partnerId })),
+  };
+};

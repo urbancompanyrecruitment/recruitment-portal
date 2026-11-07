@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Alert, Avatar, Button, Card, Flex, Form, Input, Tag, Typography } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { signInRecruiter } from '@/api/auth';
-import { DEMO_PASSWORD } from '@/mocks/constant';
+import { DEMO_PASSWORD } from '@/domain/constant';
 import { useAuth } from '@/shared/auth/AuthProvider';
 import { CANDIDATE_AVATAR_STYLE } from '@/shared/components/constant';
 import { LoginShell } from '@/shared/components/LoginShell';
@@ -17,7 +17,7 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useMutation({
-    mutationFn: ({ loginId, password }: LoginFormValues) => signInRecruiter(loginId, password),
+    mutationFn: ({ email, password }: LoginFormValues) => signInRecruiter(email, password),
     onSuccess: user => {
       signInAs(user);
       navigate(location.state?.from ?? RECRUITER_PATH.dashboard, { replace: true });
@@ -58,8 +58,8 @@ export const LoginPage = () => {
     >
       <Card style={{ marginTop: 20 }}>
         <Form form={form} layout="vertical" requiredMark={false} onFinish={values => login.mutate(values)}>
-          <Form.Item name="loginId" label="Login ID" rules={[{ required: true, message: 'Enter your login ID' }]}>
-            <Input autoComplete="username" placeholder="Your login ID" />
+          <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Enter your email' }]}>
+            <Input autoComplete="email" placeholder="you@agency.sg" />
           </Form.Item>
           <Form.Item name="password" label="Password" rules={[{ required: true, message: 'Enter your password' }]}>
             <Input.Password autoComplete="current-password" placeholder="Your password" />
@@ -80,16 +80,16 @@ export const LoginPage = () => {
         <Flex gap={8} wrap>
           {RECRUITER_DEMO_ACCOUNTS.map(account => (
             <Button
-              key={account.loginId}
+              key={account.email}
               size="small"
-              onClick={() => form.setFieldsValue({ loginId: account.loginId, password: DEMO_PASSWORD })}
+              onClick={() => form.setFieldsValue({ email: account.email, password: DEMO_PASSWORD })}
             >
               {account.label}
             </Button>
           ))}
         </Flex>
         <Typography.Paragraph type="secondary" className="small" style={{ margin: '12px 0 0' }}>
-          {RECRUITER_LOGIN.mockNote}
+          {RECRUITER_LOGIN.accountNote}
         </Typography.Paragraph>
       </div>
     </LoginShell>

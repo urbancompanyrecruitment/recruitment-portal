@@ -1,32 +1,20 @@
-export enum ProviderCategory {
-  RegularCleaning = 'Regular cleaning',
-  PremiumCleaning = 'Premium cleaning',
-  Ironing = 'Ironing',
-  NotAssigned = 'Not assigned',
-}
-
 export enum RecruitmentSource {
-  TikTok = 'TikTok',
-  Facebook = 'Facebook / Meta',
-  Referral = 'Professional referral',
-  Recruiter = 'Recruiter',
-  Aggregator = 'Aggregator',
-  Influencer = 'Influencer',
-  Direct = 'Direct',
-  Other = 'Other',
+  TikTok = 'tiktok',
+  Facebook = 'facebook',
+  Referral = 'referral',
+  Recruiter = 'recruiter',
+  Aggregator = 'aggregator',
+  Influencer = 'influencer',
+  Direct = 'direct',
+  Other = 'other',
 }
 
 export enum CookingFrequency {
-  Never = 'Never',
-  Occasionally = 'Occasionally',
-  Frequently = 'Frequently',
-  VeryFrequently = 'Very frequently',
-  Daily = 'Daily',
-}
-
-export enum YesNo {
-  Yes = 'Yes',
-  No = 'No',
+  Never = 'never',
+  Occasionally = 'occasionally',
+  Frequently = 'frequently',
+  VeryFrequently = 'very_frequently',
+  Daily = 'daily',
 }
 
 export enum UserRole {
@@ -35,10 +23,18 @@ export enum UserRole {
   Business = 'business',
 }
 
+export enum PartnerState {
+  SignedUp = 'signed_up',
+  Verified = 'verified',
+  Placed = 'placed',
+  Joined = 'joined',
+}
+
 export enum PartnerStage {
   Registered = 'registered',
   Verified = 'verified',
   Placed = 'placed',
+  Joined = 'joined',
 }
 
 export enum LockState {
@@ -52,16 +48,14 @@ export enum InactiveReason {
   Released = 'released',
 }
 
-export enum ReservationEventType {
-  Opened = 'opened',
-  PlacementSaved = 'placement-saved',
-  Expired = 'expired',
-  HubUpdated = 'hub-updated',
+export enum ReservationStatus {
+  AwaitingPlacement = 'awaiting-placement',
+  Placed = 'placed',
 }
 
-export enum ReservationStatus {
-  AwaitingAggregator = 'awaiting-aggregator',
-  AggregatorAssigned = 'aggregator-assigned',
+export enum RecruiterStatus {
+  Active = 'active',
+  Suspended = 'suspended',
 }
 
 export enum ImportRowOutcome {
@@ -71,6 +65,7 @@ export enum ImportRowOutcome {
   NotFound = 'not_found',
   AlreadyVerified = 'already_verified',
   NoSingaporeNumber = 'no_singapore_number',
+  ApprovalFailed = 'approval_failed',
 }
 
 export interface InterviewCity {
@@ -92,6 +87,7 @@ export interface InterviewSlot {
 
 export interface Onboarding {
   leadId: string;
+  journeyId?: string;
   leadCreatedAt: string;
   approvedAt?: string;
 }
@@ -99,50 +95,41 @@ export interface Onboarding {
 export interface Candidate {
   id: string;
   name: string;
-  primaryPhone: string;
+  primaryPhone?: string;
   singaporePhone?: string;
+  hasSingaporePhone: boolean;
   country: string;
   city: string;
   nationality: string;
   age: number;
   source: RecruitmentSource;
   referrer?: string;
-  comfortableWithDogs: YesNo;
+  comfortableWithDogs: boolean;
+  deepCleaningExperience: boolean;
   cookingFrequency: CookingFrequency;
-  deepCleaningExperience: YesNo;
-  consent: boolean;
   interviewCity: string;
   slotId?: string;
-  category: ProviderCategory;
-  yearsOfExperience: number;
-  bio: string;
-  onboarding?: Onboarding;
+  state: PartnerState;
+  stage: PartnerStage;
   verified: boolean;
-  verifiedBy?: string;
   verifiedAt?: string;
+  onboarding?: Onboarding;
   createdAt: string;
-}
-
-export interface PartnerAccount {
-  candidateId: string;
-  password: string;
 }
 
 export interface Recruiter {
   id: string;
   name: string;
+  email: string;
   company: string;
-  loginId: string;
+  status: RecruiterStatus;
   active: boolean;
-}
-
-export interface Aggregator {
-  id: string;
-  name: string;
-  quota: number;
+  lastLoginAt?: string;
+  createdAt: string;
 }
 
 export interface Reservation {
+  id: string;
   candidateId: string;
   recruiterId: string;
   lockedAt: number;
@@ -150,18 +137,15 @@ export interface Reservation {
   state: LockState;
   inactiveReason?: InactiveReason;
   inactiveAt?: number;
+  employerName?: string;
   startDate?: string;
-  aggregatorId?: string;
-  hub?: string;
-  hubInstructions?: string;
+  placementRecordedAt?: number;
 }
 
-export interface ReservationEvent {
-  id: string;
-  type: ReservationEventType;
-  candidateId: string;
-  recruiterId?: string;
-  at: number;
+export interface AdminReservation extends Reservation {
+  candidateName: string;
+  recruiterName: string;
+  recruiterCompany: string;
 }
 
 export interface ChannelFunnelRow {
@@ -179,4 +163,9 @@ export interface SessionUser {
   role: UserRole;
   subtitle: string;
   accesses: string[];
+}
+
+export interface LabelledOption<T> {
+  value: T;
+  label: string;
 }

@@ -1,33 +1,47 @@
-import { readCookie } from '@/shared/utils/cookie';
-import { API_ERROR, HTTP_UNAUTHORIZED, TOKEN_COOKIE } from './constant';
-import { ApiEnvelope, RequestOptions } from './interface';
+import { environment } from '@/config';
+import { API_ERROR, API_ERROR_BY_CODE, HTTP_NO_CONTENT, HTTP_UNAUTHORIZED } from './constant';
+import { ErrorBody, RequestOptions } from './interface';
 
 export class HttpError extends Error {
   constructor(
     public readonly status: number,
+    public readonly code: string | undefined,
     message: string,
   ) {
     super(message);
   }
 }
 
-export const request = async <T>(url: string, options: RequestOptions = {}): Promise<T> => {
-  const token = readCookie(TOKEN_COOKIE);
-  const headers: Record<string, string> = token
-    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    : { 'Content-Type': 'application/json' };
-
-  const response = await fetch(url, {
+const send = (path: string, options: RequestOptions): Promise<Response> =>
+  fetch(`${environment.apiBaseUrl}${path}`, {
     method: options.method ?? 'GET',
-    headers,
+    headers: options.body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    credentials: 'same-origin',
   });
 
-  const envelope = (await response.json().catch(() => ({}))) as ApiEnvelope<T>;
-
-  if (response.ok && !envelope.isError) return envelope.success?.data ?? (envelope as T);
-
+const toError = async (response: Response): Promise<HttpError> => {
+  const body = (await response.json().catch(() => ({}))) as ErrorBody;
+  const code = body.error?.code;
   const fallback = response.status === HTTP_UNAUTHORIZED ? API_ERROR.sessionExpired : API_ERROR.requestFailed;
 
-  throw new HttpError(response.status, envelope.error?.message ?? envelope.message ?? fallback);
+  return new HttpError(response.status, code, (code && API_ERROR_BY_CODE[code]) ?? body.error?.message ?? fallback);
+};
+
+export const request = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+  const response = await send(path, options);
+
+  if (!response.ok) throw await toError(response);
+
+  if (response.status === HTTP_NO_CONTENT) return undefined as T;
+
+  return (await response.json()) as T;
+};
+
+export const requestText = async (path: string): Promise<string> => {
+  const response = await send(path, {});
+
+  if (!response.ok) throw await toError(response);
+
+  return response.text();
 };

@@ -5,6 +5,7 @@ import {
   Card,
   Col,
   DatePicker,
+  Dropdown,
   Flex,
   Form,
   Input,
@@ -20,23 +21,29 @@ import {
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { importVerifiedCandidates, updateSingaporePhone } from '@/api/candidates';
-import { useAggregators, useCandidates, useRecruiters, useReservations, useUpcomingSlotDays } from '@/api/hooks';
+import {
+  exportCandidatesCsv,
+  importVerifiedCandidates,
+  markCandidateJoined,
+  resetPartnerPassword,
+  updateSingaporePhone,
+} from '@/api/candidates';
+import { useCandidates, useInterviewCities, useReservations, useUpcomingSlotDays } from '@/api/hooks';
 import { ImportRow, SlotDaySummary, VerifiedImportResult } from '@/api/interface';
 import {
   DATE_FORMAT,
   DAY_DATE_FORMAT,
-  RECRUITMENT_SOURCES,
-  SINGAPORE_INTERVIEW_CITIES,
+  RECRUITMENT_SOURCE_OPTIONS,
   SINGAPORE_PHONE_PATTERN,
+  SOURCE_LABEL,
 } from '@/domain/constant';
 import { toIsoDate } from '@/domain/format';
 import { buildChannelFunnel } from '@/domain/funnel';
-import { Candidate, ChannelFunnelRow, ImportRowOutcome, RecruitmentSource } from '@/domain/interface';
-import { formatSlot, getInterviewCity, parseSlotId } from '@/domain/slot';
+import { Candidate, ChannelFunnelRow, ImportRowOutcome, PartnerState, RecruitmentSource } from '@/domain/interface';
+import { findCity, formatSlot, parseSlotId } from '@/domain/slot';
 import { Notice, PageHeader, StatTile, VerificationTag } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
-import { downloadCsv, parseCsvColumn } from '@/shared/utils/csv';
+import { downloadCsv, downloadTextFile, parseCsvColumn } from '@/shared/utils/csv';
 import {
   BUSINESS_MESSAGE,
   EMPTY_VALUE,
@@ -49,29 +56,29 @@ import {
   NOT_SCHEDULED,
   OVERVIEW_STATS,
   SIGNUP_EXPORT_FILE_NAME,
-  SIGNUP_EXPORT_HEADERS,
   SINGAPORE_PHONE_NOTE,
   SINGAPORE_PHONE_RULE_MESSAGE,
   SLOT_SCHEDULE_NOTE,
   TABLE_PAGE_SIZE,
+  TEMPORARY_PASSWORD,
   VERIFIED_CSV_COLUMN,
   VERIFIED_CSV_NOTE,
 } from '../constant';
-import { ImportVariables, SingaporePhoneFormValues, SingaporePhoneVariables, TrackerRow } from '../interface';
+import { ImportVariables, SingaporePhoneFormValues, SingaporePhoneVariables, TemporaryPasswordNotice, TrackerRow } from '../interface';
 import { toPercent } from '../utils';
 
 export const OverviewPage = () => {
   const [phoneForm] = Form.useForm<SingaporePhoneFormValues>();
   const { data: candidates = [], isLoading } = useCandidates();
+  const { data: cities = [] } = useInterviewCities();
   const { data: slotDays = [], isLoading: slotsLoading } = useUpcomingSlotDays();
-  const { data: recruiters = [] } = useRecruiters();
-  const { data: aggregators = [] } = useAggregators();
   const { data: reservations = [] } = useReservations();
   const [cityKey, setCityKey] = useState<string>();
   const [source, setSource] = useState<RecruitmentSource>();
   const [weekStart, setWeekStart] = useState<Dayjs>(() => dayjs().subtract(FUNNEL_DEFAULT_OFFSET_DAYS, 'day'));
   const [editing, setEditing] = useState<Candidate>();
   const [importResult, setImportResult] = useState<VerifiedImportResult>();
+  const [passwordNotice, setPasswordNotice] = useState<TemporaryPasswordNotice>();
   const savePhone = useAppMutation(
     ({ candidateId, singaporePhone }: SingaporePhoneVariables) => updateSingaporePhone(candidateId, singaporePhone),
     BUSINESS_MESSAGE.singaporePhoneSaved,
@@ -80,8 +87,11 @@ export const OverviewPage = () => {
     ({ primaryPhones, fileName }: ImportVariables) => importVerifiedCandidates(primaryPhones, fileName),
     BUSINESS_MESSAGE.importCompleted,
   );
+  const resetPassword = useAppMutation(resetPartnerPassword, BUSINESS_MESSAGE.passwordReset);
+  const markJoined = useAppMutation(markCandidateJoined, BUSINESS_MESSAGE.joinedSaved);
+  const exportCsv = useAppMutation(() => exportCandidatesCsv({ cityKey, source }));
 
-  const cityName = (key: string) => getInterviewCity(key)?.name ?? key;
+  const cityName = (key: string) => findCity(cities, key)?.name ?? key;
   const filteredCandidates = candidates.filter(
     candidate => (!cityKey || candidate.interviewCity === cityKey) && (!source || candidate.source === source),
   );
@@ -89,32 +99,29 @@ export const OverviewPage = () => {
   const rows: TrackerRow[] = filteredCandidates
     .map(candidate => {
       const slot = candidate.slotId ? parseSlotId(candidate.slotId) : undefined;
-      const reservation = reservations.find(item => item.candidateId === candidate.id);
 
       return {
         candidate,
         slotLabel: slot ? formatSlot(slot) : NOT_SCHEDULED,
-        reservation,
-        recruiter: recruiters.find(item => item.id === reservation?.recruiterId),
-        aggregator: aggregators.find(item => item.id === reservation?.aggregatorId),
+        reservation: reservations.find(item => item.candidateId === candidate.id),
       };
     })
     .toSorted((a, b) => b.candidate.createdAt.localeCompare(a.candidate.createdAt));
 
-  const channelOptions = RECRUITMENT_SOURCES.filter(item => candidates.some(candidate => candidate.source === item)).map(
-    item => ({ value: item, label: item }),
+  const channelOptions = RECRUITMENT_SOURCE_OPTIONS.filter(option =>
+    candidates.some(candidate => candidate.source === option.value),
   );
   const funnel = FUNNEL_STEPS.map(step => {
     const count = rows.filter(step.matches).length;
 
     return { label: step.label, count, percent: toPercent(count, rows.length) };
   });
-  const signupsByCity = SINGAPORE_INTERVIEW_CITIES.map(city => {
+  const signupsByCity = cities.map(city => {
     const count = rows.filter(row => row.candidate.interviewCity === city.key).length;
 
     return { city, count, percent: toPercent(count, rows.length) };
   });
-  const channelFunnel = buildChannelFunnel(filteredCandidates, reservations, toIsoDate(weekStart));
+  const channelFunnel = buildChannelFunnel(filteredCandidates, toIsoDate(weekStart));
   const upcomingDays = slotDays.filter(day => !cityKey || day.cityKey === cityKey);
   const failedRows = importResult?.rows.filter(row => row.outcome !== ImportRowOutcome.Accepted) ?? [];
 
@@ -125,7 +132,7 @@ export const OverviewPage = () => {
       render: (_, { candidate }) => (
         <>
           <Typography.Text strong>{candidate.name}</Typography.Text>
-          <div className="muted small">{candidate.source}</div>
+          <div className="muted small">{SOURCE_LABEL[candidate.source]}</div>
         </>
       ),
     },
@@ -175,15 +182,42 @@ export const OverviewPage = () => {
     {
       title: 'Recruiter',
       key: 'recruiter',
-      render: (_, { recruiter }) =>
-        recruiter ? (
+      render: (_, { reservation }) =>
+        reservation ? (
           <>
-            <div>{recruiter.name}</div>
-            <div className="muted small">{recruiter.company}</div>
+            <div>{reservation.recruiterName}</div>
+            <div className="muted small">{reservation.recruiterCompany}</div>
           </>
         ) : (
           <span className="muted">{EMPTY_VALUE}</span>
         ),
+    },
+    {
+      title: '',
+      key: 'actions',
+      align: 'right',
+      render: (_, { candidate }) => (
+        <Dropdown
+          menu={{
+            items: [
+              { key: 'reset', label: 'Issue temporary password' },
+              ...(candidate.state === PartnerState.Placed ? [{ key: 'joined', label: 'Mark as joined' }] : []),
+            ],
+            onClick: ({ key }) => {
+              if (key === 'joined') return markJoined.mutate(candidate.id);
+
+              resetPassword.mutate(candidate.id, {
+                onSuccess: result =>
+                  setPasswordNotice({ title: TEMPORARY_PASSWORD.partnerTitle(candidate.name), password: result.temporaryPassword }),
+              });
+            },
+          }}
+        >
+          <Button size="small" aria-label={`Actions for ${candidate.name}`}>
+            Actions
+          </Button>
+        </Dropdown>
+      ),
     },
   ];
 
@@ -194,7 +228,7 @@ export const OverviewPage = () => {
   ];
 
   const channelColumns: TableColumnsType<ChannelFunnelRow> = [
-    { title: 'Channel', dataIndex: 'source', key: 'source' },
+    { title: 'Channel', key: 'source', render: (_, row) => SOURCE_LABEL[row.source] },
     { title: 'Signups', dataIndex: 'signups', key: 'signups' },
     { title: 'Singapore number', dataIndex: 'withSingaporePhone', key: 'withSingaporePhone' },
     { title: 'UC Verified', dataIndex: 'verified', key: 'verified' },
@@ -210,7 +244,7 @@ export const OverviewPage = () => {
       render: (_, day) => (
         <>
           <div>{cityName(day.cityKey)}</div>
-          <div className="muted small">{getInterviewCity(day.cityKey)?.centre}</div>
+          <div className="muted small">{findCity(cities, day.cityKey)?.centre}</div>
         </>
       ),
     },
@@ -225,6 +259,25 @@ export const OverviewPage = () => {
         subtitle="Track signups, Singapore numbers, verification and channel conversion across your recruitment flow."
       />
       <Flex vertical gap={18}>
+        {passwordNotice && (
+          <Alert
+            type="success"
+            showIcon
+            closable
+            onClose={() => setPasswordNotice(undefined)}
+            title={passwordNotice.title}
+            description={
+              <>
+                <Typography.Text code copyable>
+                  {passwordNotice.password}
+                </Typography.Text>
+                <div className="small muted" style={{ marginTop: 6 }}>
+                  {TEMPORARY_PASSWORD.note}
+                </div>
+              </>
+            }
+          />
+        )}
         <Card>
           <Flex gap={12} wrap align="center" justify="space-between">
             <Flex gap={12} wrap>
@@ -235,7 +288,7 @@ export const OverviewPage = () => {
                 className="business-filter"
                 value={cityKey}
                 onChange={setCityKey}
-                options={SINGAPORE_INTERVIEW_CITIES.map(city => ({ value: city.key, label: city.name }))}
+                options={cities.map(city => ({ value: city.key, label: city.name }))}
               />
               <Select
                 allowClear
@@ -251,18 +304,9 @@ export const OverviewPage = () => {
               <Button
                 icon={<DownloadOutlined />}
                 disabled={!rows.length}
+                loading={exportCsv.isPending}
                 onClick={() =>
-                  downloadCsv(
-                    [
-                      SIGNUP_EXPORT_HEADERS,
-                      ...rows.map(({ candidate }) => [
-                        candidate.name,
-                        `${candidate.city}, ${candidate.country}`,
-                        candidate.primaryPhone,
-                      ]),
-                    ],
-                    SIGNUP_EXPORT_FILE_NAME,
-                  )
+                  exportCsv.mutate(undefined, { onSuccess: csv => downloadTextFile(csv, SIGNUP_EXPORT_FILE_NAME) })
                 }
               >
                 Download signed-up partners CSV

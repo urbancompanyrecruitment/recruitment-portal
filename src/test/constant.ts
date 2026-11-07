@@ -1,8 +1,7 @@
-import { DashboardUser } from '@/api/interface';
 import { SessionUser, UserRole } from '@/domain/interface';
 
 export const RECRUITER_A_SESSION: SessionUser = {
-  id: 'r-a',
+  id: '10000000-0000-4000-8000-000000000001',
   name: 'Alex Morgan',
   role: UserRole.Recruiter,
   subtitle: 'BrightPath Recruitment',
@@ -10,7 +9,7 @@ export const RECRUITER_A_SESSION: SessionUser = {
 };
 
 export const RECRUITER_B_SESSION: SessionUser = {
-  id: 'r-b',
+  id: '10000000-0000-4000-8000-000000000002',
   name: 'Jamie Lee',
   role: UserRole.Recruiter,
   subtitle: 'Horizon Recruitment',
@@ -18,19 +17,17 @@ export const RECRUITER_B_SESSION: SessionUser = {
 };
 
 export const BUSINESS_SESSION: SessionUser = {
-  id: 'u-1',
+  id: 'google-1',
   name: 'Business team',
   role: UserRole.Business,
   subtitle: 'business@urbancompany.com',
   accesses: [],
 };
 
-export const BUSINESS_TOKEN = 'jwt-business-1';
-
-export const DASHBOARD_USER_RESPONSE: DashboardUser = {
-  _id: 'u-1',
-  name: 'Business team',
-  email: 'business@urbancompany.com',
-  role: ['user'],
-  team: ['RECRUITMENT_DASHBOARD'],
+export const PARTNER_SESSION: SessionUser = {
+  id: '20000000-0000-4000-8000-000000000001',
+  name: 'Thandar Aung',
+  role: UserRole.Partner,
+  subtitle: '+6590000001',
+  accesses: [],
 };
