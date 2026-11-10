@@ -1,10 +1,10 @@
 # recruitment-portal
 
-Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web app with three role-based areas, all served by `partner-recruitment-service` (sibling repo) through `/api`:
+Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web app with three role-based areas, all served by `partner-recruitment-service` (sibling repo) through `/api`. The site opens on a partner-only home page (register or sign in); the recruiter and business areas are not linked from it and are shared with their POCs as direct links:
 
 | Area | Route | Who | Login |
 |---|---|---|---|
-| Partner | `/partner` | Cleaners signing up | Primary mobile number + password chosen at sign-up (first come, first served; the number is not verified). Logged-in partners see their status |
+| Partner | `/` (home), `/register`, `/login`, `/status` | Cleaners signing up | Email + password chosen at sign-up; the email and the primary mobile number are both unique (first come, first served; neither is verified). Logged-in partners see their status |
 | Recruiter | `/recruiter` | Approved external recruiters | Email + password; accounts are created by the business team, who share a temporary password |
 | Business (admin) | `/business` | UC business team | Google sign-in; the service verifies the ID token and allows `urbancompany.com` / `urbanclap.com` accounts |
 
@@ -12,7 +12,7 @@ The trainer flow is built separately and is not part of this app.
 
 ## The flow this UI implements
 
-1. **Sign-up.** Partner enters a **primary mobile number** (unique key) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number owns it. They pick an **interview city** and an **hourly slot** (both come from the service) and see a thank-you screen.
+1. **Sign-up.** Partner enters an **email** (unique; used to sign in), a **primary mobile number** (unique key for verification) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number or an email owns it. They pick an **interview city** and an **hourly slot** (both come from the service) and see a thank-you screen.
 2. **Slots are generated, not published.** The service builds one-hour slots from 08:00 to 18:00 (Asia/Singapore) for today and the next two days in every interview city, keeps only future start times, and subtracts bookings from a fixed capacity.
 3. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), the service creates a lead in `provider-onboarding-service` (stubbed locally); the UI shows it as `candidate.onboarding`.
 4. **Export.** Admins download signed-up partners as CSV from the service (`name, location, primary_mobile`), audited server-side.
@@ -31,7 +31,7 @@ npm run build      # typecheck + production build into dist/
 npm start          # serve dist/ the way the Docker image does (port 3005)
 ```
 
-Start `partner-recruitment-service` first (`npm run dev` there, after `npm run migrate` and `npm run seed`). Seeded sign-ins: partner `+65 9000 0001` / `Demo123!`; recruiter `alex.morgan@brightpath.sg` / `Demo123!`; business: your UC Google account.
+Start `partner-recruitment-service` first (`npm run dev` there, after `npm run migrate` and `npm run seed`). Seeded sign-ins: partner `thandar.aung@example.com` / `Demo123!`; recruiter `alex.morgan@brightpath.sg` / `Demo123!`; business: your UC Google account.
 
 Port 9009 is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console. In production the app and the service must share one origin (route `/api/*` to the service at the load balancer) so the httpOnly session cookies work.
 

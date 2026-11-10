@@ -48,6 +48,8 @@ import {
   CONSENT_PENDING_NOTE,
   CONSENT_TEXT,
   COPY_PRIMARY_LABEL,
+  EMAIL_ERROR,
+  EMAIL_HINT,
   PARTNER_ROUTE,
   PASSWORD_ERROR,
   PASSWORD_HINT,
@@ -116,6 +118,7 @@ export const RegistrationPage = () => {
             size="small"
             items={[
               { key: 'name', label: 'Name', children: candidate.name },
+              { key: 'email', label: 'Email', children: candidate.email },
               { key: 'primary', label: 'Primary mobile', children: candidate.primaryPhone },
               ...(candidate.singaporePhone
                 ? [{ key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone }]
@@ -170,6 +173,16 @@ export const RegistrationPage = () => {
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item
+                    name="email"
+                    label="Email"
+                    extra={EMAIL_HINT}
+                    rules={[{ required: true, type: 'email', message: EMAIL_ERROR }]}
+                  >
+                    <Input inputMode="email" autoComplete="email" placeholder="name@example.com" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
                     name="primaryPhone"
                     label="Primary mobile number"
                     extra={PRIMARY_PHONE_HINT}
@@ -188,9 +201,9 @@ export const RegistrationPage = () => {
                     <Input type="tel" placeholder="+65 9123 4567" disabled={copyPrimary} />
                   </Form.Item>
                 </Col>
-                <Col xs={24} md={12}>
-                  {primaryIsSingapore && (
-                    <Form.Item label=" " colon={false}>
+                {primaryIsSingapore && (
+                  <Col xs={24}>
+                    <Form.Item>
                       <Checkbox
                         checked={copyPrimary}
                         onChange={event => {
@@ -201,8 +214,8 @@ export const RegistrationPage = () => {
                         {COPY_PRIMARY_LABEL}
                       </Checkbox>
                     </Form.Item>
-                  )}
-                </Col>
+                  </Col>
+                )}
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="password"

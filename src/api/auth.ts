@@ -7,7 +7,7 @@ const partnerSession = (partner: Candidate): SessionUser => ({
   id: partner.id,
   name: partner.name,
   role: UserRole.Partner,
-  subtitle: partner.primaryPhone ?? '',
+  subtitle: partner.email ?? partner.primaryPhone ?? '',
   accesses: [],
 });
 
@@ -30,8 +30,8 @@ const adminSession = (admin: AdminProfile): SessionUser => ({
 export const signInWithGoogle = async (credential: string): Promise<SessionUser> =>
   adminSession(await request<AdminProfile>(API_PATH.googleLogin, { method: 'POST', body: { credential } }));
 
-export const signInPartner = async (primaryPhone: string, password: string): Promise<SessionUser> =>
-  partnerSession(await request<Candidate>(API_PATH.login(UserRole.Partner), { method: 'POST', body: { primaryPhone, password } }));
+export const signInPartner = async (email: string, password: string): Promise<SessionUser> =>
+  partnerSession(await request<Candidate>(API_PATH.login(UserRole.Partner), { method: 'POST', body: { email, password } }));
 
 export const signInRecruiter = async (email: string, password: string): Promise<SessionUser> =>
   recruiterSession(await request<Recruiter>(API_PATH.login(UserRole.Recruiter), { method: 'POST', body: { email, password } }));

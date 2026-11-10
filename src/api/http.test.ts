@@ -38,12 +38,12 @@ describe('http client', () => {
       { path: '/admin/partners/export.csv', text: 'name,location' },
     ]);
 
-    await request('/partner/auth/login', { method: 'POST', body: { primaryPhone: '+65', password: 'x' } });
+    await request('/partner/auth/login', { method: 'POST', body: { email: 'partner@example.com', password: 'x' } });
     await expect(requestText('/admin/partners/export.csv')).resolves.toBe('name,location');
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.credentials).toBe('same-origin');
     expect(init?.headers).toEqual({ 'Content-Type': 'application/json' });
-    expect(JSON.parse(String(init?.body))).toEqual({ primaryPhone: '+65', password: 'x' });
+    expect(JSON.parse(String(init?.body))).toEqual({ email: 'partner@example.com', password: 'x' });
   });
 });

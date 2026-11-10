@@ -52,6 +52,7 @@ export const THANDAR: Candidate = {
   ...base,
   id: '20000000-0000-4000-8000-000000000001',
   name: 'Thandar Aung',
+  email: 'thandar.aung@example.com',
   primaryPhone: '+6590000001',
   singaporePhone: '+6590000001',
   hasSingaporePhone: true,
@@ -73,6 +74,7 @@ export const SITI: Candidate = {
   ...base,
   id: '20000000-0000-4000-8000-000000000003',
   name: 'Siti Rahma',
+  email: 'siti.rahma@example.com',
   primaryPhone: '+6690000003',
   singaporePhone: '+6580000003',
   hasSingaporePhone: true,
@@ -95,6 +97,7 @@ export const ANA: Candidate = {
   ...base,
   id: '20000000-0000-4000-8000-000000000005',
   name: 'Ana Reyes',
+  email: 'ana.reyes@example.com',
   primaryPhone: '+6590000005',
   singaporePhone: '+6590000005',
   hasSingaporePhone: true,
@@ -116,6 +119,7 @@ export const MIRA: Candidate = {
   ...base,
   id: '20000000-0000-4000-8000-000000000008',
   name: 'Mira Santos',
+  email: 'mira.santos@example.com',
   primaryPhone: '+6690000008',
   hasSingaporePhone: false,
   country: 'Thailand',
@@ -134,6 +138,7 @@ export const LIN: Candidate = {
   ...base,
   id: '20000000-0000-4000-8000-000000000012',
   name: 'Lin Lin Htet',
+  email: 'lin.lin.htet@example.com',
   primaryPhone: '+6590000012',
   singaporePhone: '+6590000012',
   hasSingaporePhone: true,
@@ -152,7 +157,12 @@ export const LIN: Candidate = {
 
 export const CANDIDATES: Candidate[] = [THANDAR, SITI, ANA, MIRA, LIN];
 
-export const withoutPhones = (candidate: Candidate): Candidate => ({ ...candidate, primaryPhone: undefined, singaporePhone: undefined });
+export const withoutContactDetails = (candidate: Candidate): Candidate => ({
+  ...candidate,
+  email: undefined,
+  primaryPhone: undefined,
+  singaporePhone: undefined,
+});
 
 export const RECRUITERS: Recruiter[] = [
   { id: '10000000-0000-4000-8000-000000000001', name: 'Alex Morgan', email: 'alex.morgan@brightpath.sg', company: 'BrightPath Recruitment', status: RecruiterStatus.Active, active: true, createdAt: ago(500) },

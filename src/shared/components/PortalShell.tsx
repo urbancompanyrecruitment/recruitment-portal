@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { APP_NAME } from '@/domain/constant';
 import { getInitials } from '@/domain/format';
 import { useAuth, useSessionUser } from '@/shared/auth/AuthProvider';
+import { LOGIN_PATH } from '@/shared/auth/constant';
 import { COLOR } from '@/theme/constant';
 import { CANDIDATE_AVATAR_STYLE } from './constant';
 import { PortalShellProps } from './interface';
@@ -52,7 +53,7 @@ export const PortalShell = ({ role, workspace, navItems, sidebarFooter }: Portal
               type="text"
               onClick={() => {
                 signOut(role);
-                navigate(`/${role}/login`);
+                navigate(LOGIN_PATH[role]);
               }}
             >
               Sign out

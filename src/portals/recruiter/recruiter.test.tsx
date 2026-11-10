@@ -4,18 +4,18 @@ import { Route, Routes } from 'react-router-dom';
 import { API_ERROR } from '@/api/constant';
 import { Sessions } from '@/shared/auth/interface';
 import { RECRUITER_A_SESSION, RECRUITER_B_SESSION } from '@/test/constant';
-import { ACTIVE_LOCK, ANA, PLACED_LOCK, SITI, THANDAR, withoutPhones } from '@/test/fixtures';
+import { ACTIVE_LOCK, ANA, PLACED_LOCK, SITI, THANDAR, withoutContactDetails } from '@/test/fixtures';
 import { ApiStub } from '@/test/interface';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { requestsTo, stubApi } from '@/test/stubFetch';
 import { RECRUITER_MESSAGE } from './constant';
 import RecruiterPortal from './index';
 
-const AVAILABLE = [withoutPhones(THANDAR), withoutPhones(SITI)];
+const AVAILABLE = [withoutContactDetails(THANDAR), withoutContactDetails(SITI)];
 
 const MY_LOCKS = [
-  { lock: ACTIVE_LOCK, partner: withoutPhones(THANDAR) },
-  { lock: PLACED_LOCK, partner: withoutPhones(ANA) },
+  { lock: ACTIVE_LOCK, partner: withoutContactDetails(THANDAR) },
+  { lock: PLACED_LOCK, partner: withoutContactDetails(ANA) },
 ];
 
 const BASE_STUBS: ApiStub[] = [

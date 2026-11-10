@@ -2,6 +2,7 @@ import { CookingFrequency, RecruitmentSource } from '@/domain/interface';
 
 export interface RegistrationFormValues {
   name: string;
+  email: string;
   primaryPhone: string;
   password: string;
   confirmPassword: string;
@@ -21,6 +22,6 @@ export interface RegistrationFormValues {
 }
 
 export interface PartnerLoginFormValues {
-  primaryPhone: string;
+  email: string;
   password: string;
 }

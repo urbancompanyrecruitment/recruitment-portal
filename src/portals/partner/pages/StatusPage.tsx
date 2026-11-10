@@ -35,6 +35,7 @@ export const StatusPage = () => {
           size="small"
           items={[
             { key: 'name', label: 'Name', children: candidate.name },
+            { key: 'email', label: 'Email', children: candidate.email },
             { key: 'primary', label: 'Primary mobile', children: candidate.primaryPhone },
             {
               key: 'singapore',

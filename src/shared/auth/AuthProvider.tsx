@@ -5,7 +5,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { fetchCurrentUser, signOutRole } from '@/api/auth';
 import { QUERY_KEY } from '@/api/constant';
 import { SessionUser, UserRole } from '@/domain/interface';
-import { ACCESS_DENIED, REQUIRED_BUSINESS_ACCESSES, SESSION_STORAGE_KEY } from './constant';
+import { ACCESS_DENIED, LOGIN_PATH, REQUIRED_BUSINESS_ACCESSES, SESSION_STORAGE_KEY } from './constant';
 import { AuthContextValue, RoleGuardProps, Sessions } from './interface';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -63,7 +63,7 @@ export const RequireRole = ({ role, children }: RoleGuardProps) => {
 
   if (!user && restored.isPending) return <Spin fullscreen />;
 
-  if (!user) return <Navigate to={`/${role}/login`} replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to={LOGIN_PATH[role]} replace state={{ from: location.pathname }} />;
 
   const hasAccess =
     role !== UserRole.Business ||

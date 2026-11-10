@@ -4,6 +4,7 @@ import { APP_NAME } from '@/domain/constant';
 import { UserRole } from '@/domain/interface';
 import { RequireRole, useAuth } from '@/shared/auth/AuthProvider';
 import { PARTNER_HEADER, PARTNER_ROUTE } from './constant';
+import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { StatusPage } from './pages/StatusPage';
@@ -16,7 +17,7 @@ const PartnerPortal = () => {
   return (
     <div className="partner-layout">
       <header className="partner-header">
-        <Link to={PARTNER_ROUTE.registration} className="brand">
+        <Link to={PARTNER_ROUTE.home} className="brand">
           <span className="brand-logo">T</span>
           {APP_NAME}
         </Link>
@@ -33,7 +34,8 @@ const PartnerPortal = () => {
       </header>
       <main className="portal-content partner-content">
         <Routes>
-          <Route index element={<RegistrationPage />} />
+          <Route index element={<HomePage />} />
+          <Route path="register" element={<RegistrationPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route
             path="status"
@@ -43,7 +45,7 @@ const PartnerPortal = () => {
               </RequireRole>
             }
           />
-          <Route path="*" element={<Navigate to={PARTNER_ROUTE.registration} replace />} />
+          <Route path="*" element={<Navigate to={PARTNER_ROUTE.home} replace />} />
         </Routes>
       </main>
     </div>

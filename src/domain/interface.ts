@@ -95,6 +95,7 @@ export interface Onboarding {
 export interface Candidate {
   id: string;
   name: string;
+  email?: string;
   primaryPhone?: string;
   singaporePhone?: string;
   hasSingaporePhone: boolean;

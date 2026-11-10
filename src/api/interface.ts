@@ -21,6 +21,7 @@ export interface ErrorBody {
 
 export interface RegistrationInput {
   name: string;
+  email: string;
   primaryPhone: string;
   password: string;
   singaporePhone?: string;

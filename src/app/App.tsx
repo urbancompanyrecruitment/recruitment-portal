@@ -4,7 +4,6 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/shared/auth/AuthProvider';
 import { THEME } from '@/theme/constant';
-import { PortalDirectory } from './PortalDirectory';
 
 const PartnerPortal = lazy(() => import('@/portals/partner'));
 const RecruiterPortal = lazy(() => import('@/portals/recruiter'));
@@ -20,10 +19,9 @@ export const App = () => (
           <BrowserRouter>
             <Suspense fallback={<Spin fullscreen />}>
               <Routes>
-                <Route path="/" element={<PortalDirectory />} />
-                <Route path="/partner/*" element={<PartnerPortal />} />
                 <Route path="/recruiter/*" element={<RecruiterPortal />} />
                 <Route path="/business/*" element={<BusinessPortal />} />
+                <Route path="/*" element={<PartnerPortal />} />
               </Routes>
             </Suspense>
           </BrowserRouter>

@@ -2,17 +2,17 @@ import { useMutation } from '@tanstack/react-query';
 import { Alert, Button, Card, Form, Input, Typography } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInPartner } from '@/api/auth';
-import { DEMO_PASSWORD, PHONE_PATTERN } from '@/domain/constant';
+import { DEMO_PASSWORD } from '@/domain/constant';
 import { useAuth } from '@/shared/auth/AuthProvider';
 import { PageHeader } from '@/shared/components/ui';
-import { PARTNER_LOGIN, PARTNER_ROUTE, PRIMARY_PHONE_ERROR } from '../constant';
+import { EMAIL_ERROR, PARTNER_LOGIN, PARTNER_ROUTE } from '../constant';
 import { PartnerLoginFormValues } from '../interface';
 
 export const LoginPage = () => {
   const { signInAs } = useAuth();
   const navigate = useNavigate();
   const login = useMutation({
-    mutationFn: ({ primaryPhone, password }: PartnerLoginFormValues) => signInPartner(primaryPhone, password),
+    mutationFn: ({ email, password }: PartnerLoginFormValues) => signInPartner(email, password),
     onSuccess: user => {
       signInAs(user);
       navigate(PARTNER_ROUTE.status, { replace: true });
@@ -25,11 +25,11 @@ export const LoginPage = () => {
       <Card>
         <Form layout="vertical" requiredMark={false} onFinish={values => login.mutate(values)}>
           <Form.Item
-            name="primaryPhone"
-            label={PARTNER_LOGIN.phoneLabel}
-            rules={[{ required: true, message: PRIMARY_PHONE_ERROR }, { pattern: PHONE_PATTERN, message: PRIMARY_PHONE_ERROR }]}
+            name="email"
+            label={PARTNER_LOGIN.emailLabel}
+            rules={[{ required: true, type: 'email', message: EMAIL_ERROR }]}
           >
-            <Input type="tel" autoComplete="tel" placeholder="+95 9123 4567" />
+            <Input inputMode="email" autoComplete="email" placeholder="name@example.com" />
           </Form.Item>
           <Form.Item
             name="password"
