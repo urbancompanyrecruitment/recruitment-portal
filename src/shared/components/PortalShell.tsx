@@ -1,18 +1,16 @@
-import { Avatar, Badge, Button, Flex, Layout, Menu, Tag, Typography } from 'antd';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Avatar, Badge, Button, Flex, Layout, Menu, Typography } from 'antd';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { APP_NAME } from '@/domain/constant';
 import { getInitials } from '@/domain/format';
-import { useAuth, useSessionUser } from '@/shared/auth/AuthProvider';
-import { LOGIN_PATH } from '@/shared/auth/constant';
+import { useAuth, useSessionUser } from '@/shared/auth/session';
 import { COLOR } from '@/theme/constant';
 import { CANDIDATE_AVATAR_STYLE } from './constant';
 import { PortalShellProps } from './interface';
 
-export const PortalShell = ({ role, workspace, navItems, sidebarFooter }: PortalShellProps) => {
+export const PortalShell = ({ role, workspace, navItems, sidebarFooter, headerExtra }: PortalShellProps) => {
   const user = useSessionUser(role);
   const { signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const activeItem = navItems.find(item => location.pathname.startsWith(item.path));
 
   return (
@@ -42,20 +40,17 @@ export const PortalShell = ({ role, workspace, navItems, sidebarFooter }: Portal
       </Layout.Sider>
       <Layout>
         <Layout.Header className="portal-header">
-          <Typography.Text type="secondary" className="small">
+          <Typography.Text type="secondary" className="small portal-header-crumb">
             {workspace} / {activeItem?.label ?? 'Details'}
           </Typography.Text>
-          <Flex align="center" gap={12}>
-            <Tag>{user.subtitle}</Tag>
+          <Flex align="center" gap={12} className="portal-header-user">
             <Avatar style={CANDIDATE_AVATAR_STYLE}>{getInitials(user.name)}</Avatar>
-            <Typography.Text strong>{user.name}</Typography.Text>
-            <Button
-              type="text"
-              onClick={() => {
-                signOut(role);
-                navigate(LOGIN_PATH[role]);
-              }}
-            >
+            <div className="portal-header-identity">
+              <Typography.Text strong>{user.name}</Typography.Text>
+              <div className="muted small">{user.subtitle}</div>
+            </div>
+            {headerExtra}
+            <Button type="text" onClick={() => signOut(role)}>
               Sign out
             </Button>
           </Flex>

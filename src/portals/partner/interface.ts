@@ -1,27 +1,24 @@
-import { CookingFrequency, RecruitmentSource } from '@/domain/interface';
-
-export interface RegistrationFormValues {
-  name: string;
-  email: string;
+export interface PartnerLoginFormValues {
   primaryPhone: string;
-  password: string;
-  confirmPassword: string;
-  singaporePhone?: string;
-  country: string;
-  city: string;
-  nationality: string;
-  age: number;
-  source: RecruitmentSource;
-  referrer?: string;
-  comfortableWithDogs: boolean;
-  cookingFrequency: CookingFrequency;
-  deepCleaningExperience: boolean;
-  consent: boolean;
+  lastName: string;
+}
+
+export interface RescheduleFormValues {
   interviewCity: string;
   slotId: string;
 }
 
-export interface PartnerLoginFormValues {
-  email: string;
-  password: string;
+export interface RescheduleModalProps {
+  open: boolean;
+  country: string;
+  onClose: () => void;
+}
+
+export interface NotificationBellProps {
+  partnerId: string;
+}
+
+export interface NotificationCopy {
+  title: string;
+  body: (data?: Record<string, string>) => string;
 }

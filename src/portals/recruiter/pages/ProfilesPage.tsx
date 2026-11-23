@@ -2,6 +2,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { Button, Card, Col, Empty, Flex, Input, Row, Select, Skeleton, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { COOKING_FREQUENCY_LABEL } from '@/domain/constant';
+import { formatLocation } from '@/domain/format';
 import { CandidateAvatar, Notice, PageHeader, VerificationTag } from '@/shared/components/ui';
 import { DEFAULT_PROFILE_FILTERS, PROFILE_SORT_OPTIONS, PROFILE_SORTERS } from '../constant';
 import { useAvailableCandidates, useOpenProfile } from '../hooks';
@@ -81,7 +82,7 @@ export const ProfilesPage = () => {
                     {candidate.name}
                   </Typography.Title>
                   <div className="muted small">
-                    {candidate.city}, {candidate.country} · {candidate.nationality} · {candidate.age} years
+                    {formatLocation(candidate)} · {candidate.nationality} · {candidate.age} years
                   </div>
                   <Flex gap={6} wrap className="recruiter-profile-bio">
                     {candidate.deepCleaningExperience && <Tag>Deep cleaning</Tag>}

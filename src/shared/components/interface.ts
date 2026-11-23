@@ -1,12 +1,6 @@
 import { ReactNode } from 'react';
 import { UserRole } from '@/domain/interface';
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
-
 export type NoticeTone = 'info' | 'success' | 'warning';
 
 export interface NavItem {
@@ -20,6 +14,7 @@ export interface PortalShellProps {
   workspace: string;
   navItems: NavItem[];
   sidebarFooter?: ReactNode;
+  headerExtra?: ReactNode;
 }
 
 export interface PageHeaderProps {
@@ -49,6 +44,31 @@ export interface LoginShellProps {
   children: ReactNode;
 }
 
-export interface GoogleSignInProps {
-  onCredential: (credential: string) => void;
+export interface ChangePasswordProps {
+  role: UserRole;
+}
+
+export interface ChangePasswordFormValues {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface PublicShellProps {
+  leading?: ReactNode;
+  actions?: ReactNode;
+  narrow?: boolean;
+  children: ReactNode;
+}
+
+export interface PortalOption {
+  title: string;
+  description: string;
+  action: string;
+  to: string;
+  primary?: boolean;
+}
+
+export interface OptionCardsProps {
+  options: PortalOption[];
 }

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { listRegisteredCandidates } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
-import { listAvailableCandidates, listMyReservations, reserveCandidate } from '@/api/reservations';
+import { listAvailableCandidates, listMyAggregators, listMyReservations, reserveCandidate } from '@/api/reservations';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { RECRUITER_MESSAGE, RECRUITER_PATH, RESERVATION_REFETCH_MS } from './constant';
 
@@ -18,6 +19,12 @@ export const useMyReservations = (recruiterId: string) =>
     queryFn: listMyReservations,
     refetchInterval: RESERVATION_REFETCH_MS,
   });
+
+export const useRegisteredCandidates = (recruiterId: string) =>
+  useQuery({ queryKey: QUERY_KEY.registeredCandidates(recruiterId), queryFn: listRegisteredCandidates });
+
+export const useMyAggregators = (recruiterId: string) =>
+  useQuery({ queryKey: QUERY_KEY.myAggregators(recruiterId), queryFn: listMyAggregators });
 
 export const useOpenProfile = () => {
   const navigate = useNavigate();

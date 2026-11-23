@@ -1,8 +1,15 @@
 import {
+  AdminAccount,
+  AdminRole,
   Candidate,
   CookingFrequency,
+  HubRowOutcome,
+  SlotRowOutcome,
   ImportRowOutcome,
   InterviewSlot,
+  LockOrigin,
+  PartnerCountry,
+  PartnerNotification,
   PartnerStage,
   PartnerState,
   Recruiter,
@@ -19,24 +26,36 @@ export interface ErrorBody {
   error?: { code?: string; message?: string };
 }
 
-export interface RegistrationInput {
-  name: string;
-  email: string;
+export interface PartnerDetailsInput {
+  firstName: string;
+  lastName: string;
   primaryPhone: string;
-  password: string;
   singaporePhone?: string;
-  country: string;
+  country: PartnerCountry;
   city: string;
   nationality: string;
   age: number;
-  source: RecruitmentSource;
-  referrer?: string;
   comfortableWithDogs: boolean;
   cookingFrequency: CookingFrequency;
   deepCleaningExperience: boolean;
   consent: boolean;
   interviewCity: string;
   slotId: string;
+}
+
+export interface RegistrationInput extends PartnerDetailsInput {
+  source: RecruitmentSource;
+  referrer?: string;
+}
+
+export interface RescheduleInput {
+  interviewCity: string;
+  slotId: string;
+}
+
+export interface NotificationList {
+  notifications: PartnerNotification[];
+  unreadCount: number;
 }
 
 export interface RegistrationResult {
@@ -68,9 +87,20 @@ export interface CandidateFilters {
   source?: RecruitmentSource;
 }
 
-export interface ImportRow {
-  rowNumber: number;
+export interface VerificationUploadRow {
   primaryPhone: string;
+  verified: string;
+}
+
+export interface ImportCounts {
+  rows: number;
+  accepted: number;
+  rejected: number;
+  errors: number;
+}
+
+export interface ImportRow extends VerificationUploadRow {
+  rowNumber: number;
   outcome: ImportRowOutcome;
   candidateId?: string;
 }
@@ -78,8 +108,50 @@ export interface ImportRow {
 export interface VerifiedImportResult {
   importId: string;
   fileName: string;
-  counts: { rows: number; accepted: number; failed: number };
+  counts: ImportCounts;
   rows: ImportRow[];
+}
+
+export interface HubUploadRow {
+  primaryPhone: string;
+  hubName: string;
+}
+
+export interface HubImportRow extends HubUploadRow {
+  rowNumber: number;
+  outcome: HubRowOutcome;
+  partnerId?: string;
+}
+
+export interface HubImportResult {
+  fileName: string;
+  counts: { rows: number; updated: number; errors: number };
+  rows: HubImportRow[];
+}
+
+export interface SlotUploadRow {
+  centre: string;
+  startTime: string;
+  endTime: string;
+  capacity: string;
+}
+
+export interface SlotImportRow extends SlotUploadRow {
+  rowNumber: number;
+  outcome: SlotRowOutcome;
+}
+
+export interface SlotImportCounts {
+  rows: number;
+  created: number;
+  updated: number;
+  errors: number;
+}
+
+export interface SlotImportResult {
+  fileName: string;
+  counts: SlotImportCounts;
+  rows: SlotImportRow[];
 }
 
 export type AvailableCandidate = Candidate;
@@ -91,7 +163,7 @@ export interface ReservedCandidate {
 
 export interface PlacementInput {
   startDate: string;
-  employerName: string;
+  aggregatorId: string;
 }
 
 export interface RecruiterInput {
@@ -100,19 +172,33 @@ export interface RecruiterInput {
   email: string;
 }
 
+export interface RecruiterSignUpInput extends RecruiterInput {
+  password: string;
+}
+
 export interface CreatedRecruiter {
   recruiter: Recruiter;
   temporaryPassword: string;
 }
 
-export interface TemporaryPasswordResult {
+export interface AdminInput {
+  name: string;
+  email: string;
+  role: AdminRole;
+}
+
+export interface CreatedAdmin {
+  admin: AdminAccount;
   temporaryPassword: string;
 }
 
-export interface AdminProfile {
-  id: string;
-  name: string;
-  email: string;
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface TemporaryPasswordResult {
+  temporaryPassword: string;
 }
 
 export interface BackendPartner extends Omit<Candidate, 'id'> {
@@ -133,12 +219,14 @@ export interface BackendLock {
   id: string;
   partnerId: string;
   recruiterId: string;
+  origin: LockOrigin;
   lockedAt: string;
-  lockReleaseAt: string;
+  lockReleaseAt?: string;
   state: Reservation['state'];
   inactiveReason?: Reservation['inactiveReason'];
   inactiveAt?: string;
   employerName?: string;
+  aggregatorId?: string;
   startDate?: string;
   placementRecordedAt?: string;
 }
@@ -154,9 +242,8 @@ export interface BackendLockedPartner {
   partner: Candidate;
 }
 
-export interface BackendImportRow {
+export interface BackendImportRow extends VerificationUploadRow {
   rowNumber: number;
-  primaryPhone: string;
   outcome: ImportRowOutcome;
   partnerId?: string;
 }
@@ -164,6 +251,6 @@ export interface BackendImportRow {
 export interface BackendImportResult {
   importId: string;
   fileName: string;
-  counts: { rows: number; accepted: number; failed: number };
+  counts: ImportCounts;
   rows: BackendImportRow[];
 }

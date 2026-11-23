@@ -1,4 +1,4 @@
-import { AdminReservation, Reservation } from '@/domain/interface';
+import { AdminReservation, Aggregator, Reservation } from '@/domain/interface';
 import { API_PATH } from './constant';
 import { request } from './http';
 import { AvailableCandidate, BackendAdminLock, BackendLock, BackendLockedPartner, PlacementInput, ReservedCandidate } from './interface';
@@ -9,12 +9,14 @@ export const toReservation = (lock: BackendLock): Reservation => ({
   id: lock.id,
   candidateId: lock.partnerId,
   recruiterId: lock.recruiterId,
+  origin: lock.origin,
   lockedAt: Date.parse(lock.lockedAt),
-  lockReleaseAt: Date.parse(lock.lockReleaseAt),
+  lockReleaseAt: toEpoch(lock.lockReleaseAt),
   state: lock.state,
   inactiveReason: lock.inactiveReason,
   inactiveAt: toEpoch(lock.inactiveAt),
   employerName: lock.employerName,
+  aggregatorId: lock.aggregatorId,
   startDate: lock.startDate,
   placementRecordedAt: toEpoch(lock.placementRecordedAt),
 });
@@ -37,6 +39,8 @@ export const listAvailableCandidates = (): Promise<AvailableCandidate[]> =>
 
 export const listMyReservations = async (): Promise<ReservedCandidate[]> =>
   (await request<BackendLockedPartner[]>(API_PATH.myLocks)).map(toReservedCandidate);
+
+export const listMyAggregators = (): Promise<Aggregator[]> => request<Aggregator[]>(API_PATH.myAggregators);
 
 export const getReservedCandidate = async (candidateId: string): Promise<ReservedCandidate> =>
   toReservedCandidate(await request<BackendLockedPartner>(API_PATH.lockedPartner(candidateId)));

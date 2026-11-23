@@ -1,20 +1,25 @@
 import { Button, Card, Empty, Flex, Table, Tabs, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useInterviewCities } from '@/api/hooks';
 import { ReservedCandidate } from '@/api/interface';
-import { formatDate } from '@/domain/format';
-import { ReservationStatus, UserRole } from '@/domain/interface';
+import { PARTNER_STATE_TAG } from '@/domain/constant';
+import { formatDate, formatLocation } from '@/domain/format';
+import { Candidate, ReservationStatus, UserRole } from '@/domain/interface';
 import { formatLockStatus, getReservationStatus } from '@/domain/reservation';
-import { useSessionUser } from '@/shared/auth/AuthProvider';
+import { findCity, formatSlot, parseSlotId } from '@/domain/slot';
+import { useSessionUser } from '@/shared/auth/session';
 import { CandidateAvatar, PageHeader } from '@/shared/components/ui';
-import { CANDIDATE_TABS, RECRUITER_PATH } from '../constant';
-import { useMyReservations } from '../hooks';
+import { CANDIDATE_TABS, RECRUITER_PATH, REGISTERED_PARTNERS } from '../constant';
+import { useMyReservations, useRegisteredCandidates } from '../hooks';
 import { CandidateTab } from '../interface';
 
 export const MyCandidatesPage = () => {
   const user = useSessionUser(UserRole.Recruiter);
   const navigate = useNavigate();
   const { data = [], isLoading, dataUpdatedAt } = useMyReservations(user.id);
+  const registered = useRegisteredCandidates(user.id);
+  const { data: cities = [] } = useInterviewCities();
   const [activeTab, setActiveTab] = useState<CandidateTab>(CandidateTab.All);
 
   const rowsByTab = Object.fromEntries(
@@ -26,7 +31,7 @@ export const MyCandidatesPage = () => {
 
   return (
     <>
-      <PageHeader title="My candidates" subtitle="Manage your locked profiles and confirmed placements." />
+      <PageHeader title="My candidates" subtitle="Manage your locked profiles, confirmed placements and the partners you registered." />
       <Tabs
         activeKey={activeTab}
         onChange={key => setActiveTab(key as CandidateTab)}
@@ -68,7 +73,7 @@ export const MyCandidatesPage = () => {
             {
               key: 'location',
               title: 'Current location',
-              render: (_, { candidate }) => `${candidate.city}, ${candidate.country}`,
+              render: (_, { candidate }) => formatLocation(candidate),
             },
             {
               key: 'startDate',
@@ -76,8 +81,8 @@ export const MyCandidatesPage = () => {
               render: (_, { reservation }) => formatDate(reservation.startDate),
             },
             {
-              key: 'employer',
-              title: 'Employer',
+              key: 'aggregator',
+              title: 'Aggregator',
               render: (_, { reservation }) =>
                 reservation.employerName ?? <Typography.Text type="secondary">Not saved</Typography.Text>,
             },
@@ -96,6 +101,47 @@ export const MyCandidatesPage = () => {
               title: '',
               align: 'right',
               render: (_, { candidate }) => <Link to={RECRUITER_PATH.candidate(candidate.id)}>View →</Link>,
+            },
+          ]}
+        />
+      </Card>
+      <Card
+        title={`${REGISTERED_PARTNERS.title} (${registered.data?.length ?? 0})`}
+        styles={{ body: { padding: 0 } }}
+        style={{ marginTop: 18 }}
+        extra={<Link to={RECRUITER_PATH.registerPartner}>{REGISTERED_PARTNERS.register} →</Link>}
+      >
+        <Typography.Paragraph type="secondary" className="small recruiter-card-note">
+          {REGISTERED_PARTNERS.note}
+        </Typography.Paragraph>
+        <Table<Candidate>
+          rowKey="id"
+          loading={registered.isLoading}
+          dataSource={registered.data ?? []}
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+          locale={{ emptyText: REGISTERED_PARTNERS.empty }}
+          columns={[
+            { key: 'name', title: 'Partner', render: (_, candidate) => <Typography.Text strong>{candidate.name}</Typography.Text> },
+            { key: 'primaryPhone', title: 'Primary mobile', render: (_, candidate) => candidate.primaryPhone },
+            {
+              key: 'slot',
+              title: 'Interview slot',
+              render: (_, candidate) => {
+                const slot = candidate.slotId
+                  ? parseSlotId(candidate.slotId, findCity(cities, candidate.interviewCity)?.timeZone)
+                  : undefined;
+
+                return slot ? formatSlot(slot) : <Typography.Text type="secondary">Not scheduled</Typography.Text>;
+              },
+            },
+            { key: 'registeredOn', title: 'Registered on', render: (_, candidate) => formatDate(candidate.createdAt) },
+            {
+              key: 'state',
+              title: 'Status',
+              render: (_, candidate) => (
+                <Tag color={PARTNER_STATE_TAG[candidate.state].color}>{PARTNER_STATE_TAG[candidate.state].label}</Tag>
+              ),
             },
           ]}
         />

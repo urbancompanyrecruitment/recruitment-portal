@@ -5,12 +5,12 @@ import { InterviewCity, InterviewSlot } from './interface';
 export const findCity = (cities: InterviewCity[], cityKey: string | undefined): InterviewCity | undefined =>
   cities.find(city => city.key === cityKey);
 
-export const parseSlotId = (slotId: string): InterviewSlot | undefined => {
+export const parseSlotId = (slotId: string, timeZone = INTERVIEW_TIME_ZONE): InterviewSlot | undefined => {
   const [cityKey, date, time] = slotId.split(SLOT_ID_SEPARATOR);
 
   if (!cityKey || !date || !time) return undefined;
 
-  return { id: slotId, cityKey, date, time, timeZone: INTERVIEW_TIME_ZONE, capacity: 0 };
+  return { id: slotId, cityKey, date, time, timeZone, capacity: 0 };
 };
 
 export const formatSlot = (slot: InterviewSlot): string =>

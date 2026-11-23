@@ -1,24 +1,33 @@
 # recruitment-portal
 
-Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web app with three role-based areas, all served by `partner-recruitment-service` (sibling repo) through `/api`. The site opens on a partner-only home page (register or sign in); the recruiter and business areas are not linked from it and are shared with their POCs as direct links:
+Front end for the partner recruitment & onboarding product (PRD: "Recruitment and Onboarding Portal", Onboarding SG Job Portal; tech design on Confluence: "Partner Recruitment Portal — Backend Tech Design"). A standalone web app with three role-based areas, all served by `partner-recruitment-service` (sibling repo) through `/api`. The site opens on a home page with two choices, the partner dashboard and the recruiter dashboard. The admin area is not linked from it; its URL is shared with the admin team directly.
 
 | Area | Route | Who | Login |
 |---|---|---|---|
-| Partner | `/` (home), `/register`, `/login`, `/status` | Cleaners signing up | Email + password chosen at sign-up; the email and the primary mobile number are both unique (first come, first served; neither is verified). Logged-in partners see their status |
-| Recruiter | `/recruiter` | Approved external recruiters | Email + password; accounts are created by the business team, who share a temporary password |
-| Business (admin) | `/business` | UC business team | Google sign-in; the service verifies the ID token and allows `urbancompany.com` / `urbanclap.com` accounts |
+| Home | `/` | Everyone | Two cards: partner dashboard, recruiter dashboard |
+| Partner | `/partner` (new registration or sign in), `/partner/register`, `/partner/login`, `/partner/status` | Cleaners signing up | Primary mobile number + last name, like an airline booking lookup; no email and no password. The primary mobile is unique (first come, first served, not verified) |
+| Recruiter | `/recruiter` (create an account or sign in), `/recruiter/signup`, `/recruiter/login`, then `/recruiter/dashboard` and the other feature pages | External recruiters | Email + password. A recruiter who signed up sees only a "waiting for approval" message until an admin approves the account |
+| Admin | `/admin` | UC admin team | Email + password of an admin account held by the service. Super admins also manage admin accounts |
 
-The trainer flow is built separately and is not part of this app.
+The old partner links `/login`, `/register` and `/status` redirect to `/partner/...`. The trainer flow is built separately and is not part of this app.
 
 ## The flow this UI implements
 
-1. **Sign-up.** Partner enters an **email** (unique; used to sign in), a **primary mobile number** (unique key for verification) and a **password**, and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). The first sign-up with a number or an email owns it. They pick an **interview city** and an **hourly slot** (both come from the service) and see a thank-you screen.
-2. **Slots are generated, not published.** The service builds one-hour slots from 08:00 to 18:00 (Asia/Singapore) for today and the next two days in every interview city, keeps only future start times, and subtracts bookings from a fixed capacity.
-3. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), the service creates a lead in `provider-onboarding-service` (stubbed locally); the UI shows it as `candidate.onboarding`.
-4. **Export.** Admins download signed-up partners as CSV from the service (`name, location, primary_mobile`), audited server-side.
-5. **Verified upload.** Admins upload a CSV of verified partners (`primary_mobile` column); the UI parses it and posts the numbers. Only partners with a valid Singapore number on file are verified and approved; every other row is listed with a reason and available as a fail CSV.
-6. **Lock.** A recruiter locks a verified partner; the service returns the lock (`lockedAt`, `lockReleaseAt`, `state`) and the phone numbers. A lock stops counting the moment its release time passes.
-7. **Placement.** The lock owner records the employer name and start date; the partner becomes *placed*. The business team can later mark them *joined* and issue temporary passwords.
+1. **Sign-up.** Partner enters a **first name**, a **last name** (used to sign in), a **primary mobile number** (unique; used to sign in and as the key for verification) and optionally a **Singapore mobile number** (if the primary number is already Singapore, a checkbox copies it). An approved recruiter can fill the same form for a partner under "Register a partner" (`src/shared/registration`, one form for both). They choose their **current country** (Singapore, Myanmar or Others) and a **nationality** from the full country list.
+2. **Interview city and slot.** The interview cities offered are those of the chosen country; Others lists every city. The hourly slots of the chosen city come from the service's `interview_slots` table for today and the next two days, future start times only, with the seats left.
+3. **Sign-up sheet.** The service appends every sign-up to a Google Sheet; nothing to do in the UI.
+4. **Singapore number → lead.** Whenever a partner first gets a Singapore number (at sign-up or added later by an admin), the service creates a lead in `provider-onboarding-service` (stubbed locally); the UI shows it as `candidate.onboarding`.
+5. **Export.** Admins download signed-up partners as CSV from the service (`name, location, primary_mobile`), audited server-side.
+   A second download, the **ops dashboard lead upload** file, is the one admins upload at `ops.urbanclap.com/lead/bulkAdd` to create the Urban Company leads: `name, phone, city_key, category_key, source_type, experiment_name`, only partners with a valid Singapore number (as 8 digits, without `+65`), partners who failed verification left out. No Urban Company ids come back to the portal; the two systems match on the Singapore mobile number.
+6. **Verified upload.** Admins upload a CSV with the columns `primary_mobile` and `verified`. `verified = true` marks the partner UC Verified (a Singapore number is not required); `verified = false` marks them **verification failed**, which is final: their status page says the application is closed and they never reach recruiters. Rows that could not be applied are listed with a reason and available as a fail CSV.
+7. **Hub upload.** Admins upload a CSV with the columns `primary_mobile` and `hub_name`; it sets the hub of each partner, shown in the admin table and on the partner's status page.
+   Steps 5 to 7, the partner list, adding a Singapore number, tagging a partner to a recruiter and marking a partner joined all live on the admin **Partners** tab (`/admin/partners`), where every CSV file has a card that states its format and conditions (`CSV_FILES` in `src/portals/admin/constant.ts`). The admin **Overview** tab only shows how the flow is doing: totals, funnel, signups by city, channel funnel and upcoming slots.
+8. **Recruiter accounts.** A recruiter creates an account (name, organisation, email, password) and waits; admins see the request under "Approval requests" and approve or reject it. Admins can also create an approved recruiter directly, suspend a recruiter and bring them back. The recruiters table shows each recruiter's **locks acquired** and **placements submitted**.
+9. **Lock.** An approved recruiter locks a verified partner for three days; the service returns the lock (`lockedAt`, `lockReleaseAt`, `state`, `origin`) and the phone numbers. A lock stops counting the moment its release time passes. An admin can tag a verified, unlocked partner to a recruiter (same three days). A partner the recruiter registered is locked to them with no expiry (`lockReleaseAt` absent) as soon as the partner is UC Verified.
+10. **Placement.** The recruiter holding the active lock chooses one of their aggregators (added by admins on "Recruiter access"; none by default, and no placement can be saved without one) and the start date; the partner becomes *placed* and the placement is then read-only for the recruiter. An admin can later mark them *joined*.
+11. **Passwords.** Recruiters and admins change their own password after signing in. Admins reset a recruiter's password, and super admins an admin's, and get a temporary password to share. Partners have no password.
+12. **Reschedule.** A partner who is still *registered* (not yet verified) can pick a new interview city and slot from the status page, also after the booked slot has passed.
+13. **Notifications.** A signed-in partner has a bell at the top left of the header. It lists when they became UC Verified and when a recruiter confirmed their placement (aggregator and joining date), with an unread count; closing the list marks them read.
 
 ## Run
 
@@ -31,9 +40,9 @@ npm run build      # typecheck + production build into dist/
 npm start          # serve dist/ the way the Docker image does (port 3005)
 ```
 
-Start `partner-recruitment-service` first (`npm run dev` there, after `npm run migrate` and `npm run seed`). Seeded sign-ins: partner `thandar.aung@example.com` / `Demo123!`; recruiter `alex.morgan@brightpath.sg` / `Demo123!`; business: your UC Google account.
+Start `partner-recruitment-service` first (`npm run dev` there, after `npm run migrate` and `npm run seed`). Seeded sign-ins are listed in that repo's README (partner by primary mobile and last name, recruiter and admin by email with one shared demo password). The login pages show no seeded accounts or other development hints in any mode, so use that README for local sign-ins.
 
-Port 9009 is already an authorized origin on the UC Google client; other ports need adding in the Google Cloud console. In production the app and the service must share one origin (route `/api/*` to the service at the load balancer) so the httpOnly session cookies work.
+In production the app and the service must share one origin (route `/api/*` to the service at the load balancer) so the httpOnly session cookies work.
 
 ## Stack
 
@@ -42,18 +51,20 @@ Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Ro
 ## Structure
 
 ```
-environment/      per-mode config (development / staging / production): apiBaseUrl, Google client id
+environment/      per-mode config (development / staging / production): apiBaseUrl
+public/terms/     Terms and Conditions PDFs linked from partner and recruiter sign-up (placeholders until the final documents arrive; keep the file names)
 server.js         express static server used by the Docker image (serves dist/, SPA fallback, /healthcheck)
 src/
+  app/            routes: home, the three portals, redirects for the old partner links
   config/         picks environment/<mode>.json from import.meta.env.MODE
   domain/         pure business rules + shared types, no React or I/O
-                  phone.ts (Singapore number rules), reservation.ts (lock state), funnel.ts, slot.ts (slot id parsing)
+                  constant.ts (countries, nationalities, state labels), phone.ts, reservation.ts (lock state), funnel.ts, slot.ts, format.ts
   api/            the only layer the UI calls: one file per resource, all over fetch with same-origin cookies
-                  http.ts (error envelope → user-facing messages), auth.ts (login / me / logout per role)
-                  candidates.ts (sign-up, status, admin partner actions, verified import), reservations.ts (locks, placements)
-                  slots.ts (cities, bookable slots, occupancy), people.ts (recruiters)
-  shared/         auth context + RequireRole guard (restores sessions from the cookie), PortalShell, LoginShell, GoogleSignIn, CSV helpers
-  portals/        partner/  recruiter/  business/
+                  http.ts (error envelope → user-facing messages), auth.ts (login / sign-up / me / logout / change password per role)
+                  candidates.ts (sign-up, status, admin partner actions, verified and hub imports), reservations.ts (locks, placements)
+                  slots.ts (cities by country, bookable slots, occupancy), people.ts (recruiters, admin accounts)
+  shared/         auth/session.tsx (useSession, RequireRole, SignedOutOnly), PublicShell, PortalShell, LoginShell, ChangePassword, CSV helpers
+  portals/        home/  partner/  recruiter/  admin/
   theme/          antd theme tokens + global CSS
   test/           setup, render helper, route-based fetch stub, fixtures, session fixtures
 ```
@@ -62,6 +73,7 @@ Each folder keeps its types in `interface.ts` and its constants in `constant.ts`
 
 ## Authentication
 
-- **Partner / recruiter.** `POST /api/<role>/auth/login` sets an httpOnly session cookie; the UI keeps the display name in `sessionStorage` and `RequireRole` calls `GET /api/<role>/auth/me` to restore a session after a reload. Sign-out calls the logout endpoint and clears the stored session.
-- **Business.** Google Identity Services renders the button (`GoogleSignIn`) and returns an ID token; `POST /api/admin/auth/google` verifies it in the service (audience = the client id in `environment/*.json`, allowed email domains) and sets `admin_session`.
-- `REQUIRED_BUSINESS_ACCESSES` in `src/shared/auth/constant.ts` is empty, so any allowed UC account can enter for now.
+- **The cookie is the only source of truth.** `useSession(role)` reads `GET /api/<role>/auth/me` (cached by TanStack Query, re-checked whenever the tab regains focus); nothing is kept in `sessionStorage`. So a new tab is signed in straight away, and a tab left open shows the account the cookie belongs to now, even if another tab signed in as someone else. `RequireRole` guards the signed-in pages; `SignedOutOnly` sends an already signed-in user from a landing, login or sign-up page to their home. Sign-out calls the logout endpoint and reloads the app, which also drops every cached response.
+- **Sign-in.** `POST /api/<role>/auth/login` sets the httpOnly session cookie: partners with primary mobile + last name (no password), recruiters and admins with email + password. `ChangePassword` (header for recruiters and admins) posts to `/api/<role>/change-password`.
+- **Recruiter approval.** `SessionUser.approved` is false while the recruiter's status is `pending`. `RecruiterLayout` then renders `PendingApprovalPage` instead of the workspace, so no feature page loads and no feature endpoint is called; the service refuses those endpoints as well. The session is re-read when the tab regains focus, so the workspace opens once an admin approves.
+- **Admin roles.** `SessionUser.adminRole` comes from the service. Only a `super_admin` sees "Admin accounts" (`/admin/admins`); the service enforces the same rule.

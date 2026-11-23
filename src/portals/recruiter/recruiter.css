@@ -41,6 +41,10 @@
   padding: 12px 0;
 }
 
+.recruiter-card-note.ant-typography {
+  margin: 14px 24px;
+}
+
 .recruiter-row + .recruiter-row {
   border-top: 1px solid #e7e9f0;
 }

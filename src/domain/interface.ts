@@ -20,12 +20,29 @@ export enum CookingFrequency {
 export enum UserRole {
   Partner = 'partner',
   Recruiter = 'recruiter',
-  Business = 'business',
+  Admin = 'admin',
+}
+
+export enum AdminRole {
+  SuperAdmin = 'super_admin',
+  Admin = 'admin',
+}
+
+export enum AdminStatus {
+  Active = 'active',
+  Suspended = 'suspended',
+}
+
+export enum PartnerCountry {
+  Singapore = 'Singapore',
+  Myanmar = 'Myanmar',
+  Others = 'Others',
 }
 
 export enum PartnerState {
   SignedUp = 'signed_up',
   Verified = 'verified',
+  VerificationFailed = 'verification_failed',
   Placed = 'placed',
   Joined = 'joined',
 }
@@ -33,6 +50,7 @@ export enum PartnerState {
 export enum PartnerStage {
   Registered = 'registered',
   Verified = 'verified',
+  VerificationFailed = 'verification_failed',
   Placed = 'placed',
   Joined = 'joined',
 }
@@ -48,32 +66,78 @@ export enum InactiveReason {
   Released = 'released',
 }
 
+export enum LockOrigin {
+  Recruiter = 'recruiter',
+  Registration = 'registration',
+  Admin = 'admin',
+}
+
+export enum PartnerNotificationType {
+  Verified = 'verified',
+  Placement = 'placement',
+}
+
 export enum ReservationStatus {
   AwaitingPlacement = 'awaiting-placement',
   Placed = 'placed',
 }
 
 export enum RecruiterStatus {
+  Pending = 'pending',
   Active = 'active',
   Suspended = 'suspended',
+  Rejected = 'rejected',
 }
 
 export enum ImportRowOutcome {
   Accepted = 'accepted',
+  Rejected = 'rejected',
   InvalidPhone = 'invalid_phone',
+  InvalidVerified = 'invalid_verified',
   DuplicateInFile = 'duplicate_in_file',
   NotFound = 'not_found',
   AlreadyVerified = 'already_verified',
+  AlreadyFailed = 'already_failed',
   NoSingaporeNumber = 'no_singapore_number',
   ApprovalFailed = 'approval_failed',
+}
+
+export enum SlotRowOutcome {
+  Created = 'created',
+  Updated = 'updated',
+  UnknownCentre = 'unknown_centre',
+  InvalidTime = 'invalid_time',
+  InvalidEndTime = 'invalid_end_time',
+  InvalidCapacity = 'invalid_capacity',
+  DuplicateInFile = 'duplicate_in_file',
+}
+
+export interface InterviewCentre {
+  key: string;
+  name: string;
+  country: string;
+  cityName: string;
+  address: string;
+  timeZone: string;
+}
+
+export enum HubRowOutcome {
+  Updated = 'updated',
+  InvalidPhone = 'invalid_phone',
+  MissingHub = 'missing_hub',
+  DuplicateInFile = 'duplicate_in_file',
+  NotFound = 'not_found',
+  NotEligible = 'not_eligible',
 }
 
 export interface InterviewCity {
   key: string;
   name: string;
+  country: string;
   centre: string;
   address: string;
   instructions: string;
+  timeZone: string;
 }
 
 export interface InterviewSlot {
@@ -92,10 +156,15 @@ export interface Onboarding {
   approvedAt?: string;
 }
 
+export interface CandidateRegistrar {
+  recruiterId: string;
+  name: string;
+  company: string;
+}
+
 export interface Candidate {
   id: string;
   name: string;
-  email?: string;
   primaryPhone?: string;
   singaporePhone?: string;
   hasSingaporePhone: boolean;
@@ -105,6 +174,7 @@ export interface Candidate {
   age: number;
   source: RecruitmentSource;
   referrer?: string;
+  registeredBy?: CandidateRegistrar;
   comfortableWithDogs: boolean;
   deepCleaningExperience: boolean;
   cookingFrequency: CookingFrequency;
@@ -114,6 +184,7 @@ export interface Candidate {
   stage: PartnerStage;
   verified: boolean;
   verifiedAt?: string;
+  hubName?: string;
   onboarding?: Onboarding;
   createdAt: string;
 }
@@ -125,6 +196,32 @@ export interface Recruiter {
   company: string;
   status: RecruiterStatus;
   active: boolean;
+  selfRegistered: boolean;
+  lastLoginAt?: string;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export interface Aggregator {
+  id: string;
+  recruiterId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface RecruiterWithStats extends Recruiter {
+  locksAcquired: number;
+  placementsSubmitted: number;
+  aggregators: Aggregator[];
+}
+
+export interface AdminAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: AdminRole;
+  status: AdminStatus;
+  active: boolean;
   lastLoginAt?: string;
   createdAt: string;
 }
@@ -133,14 +230,24 @@ export interface Reservation {
   id: string;
   candidateId: string;
   recruiterId: string;
+  origin: LockOrigin;
   lockedAt: number;
-  lockReleaseAt: number;
+  lockReleaseAt?: number;
   state: LockState;
   inactiveReason?: InactiveReason;
   inactiveAt?: number;
   employerName?: string;
+  aggregatorId?: string;
   startDate?: string;
   placementRecordedAt?: number;
+}
+
+export interface PartnerNotification {
+  id: string;
+  type: PartnerNotificationType;
+  data?: Record<string, string>;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface AdminReservation extends Reservation {
@@ -163,7 +270,13 @@ export interface SessionUser {
   name: string;
   role: UserRole;
   subtitle: string;
-  accesses: string[];
+  approved: boolean;
+  adminRole?: AdminRole;
+}
+
+export interface TagStyle {
+  label: string;
+  color?: string;
 }
 
 export interface LabelledOption<T> {

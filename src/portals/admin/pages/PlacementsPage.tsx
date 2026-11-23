@@ -1,9 +1,18 @@
 import { Card, Flex, Table, TableColumnsType, Tag, Typography } from 'antd';
 import { useReservations } from '@/api/hooks';
+import { LOCK_NO_EXPIRY_LABEL } from '@/domain/constant';
 import { formatDate, formatDateTime } from '@/domain/format';
-import { AdminReservation } from '@/domain/interface';
+import { AdminReservation, LockOrigin } from '@/domain/interface';
 import { Notice, PageHeader } from '@/shared/components/ui';
-import { EMPTY_VALUE, INACTIVE_REASON_LABEL, LOCK_EXPIRY_NOTE, LOCK_STATE_TAG, RELEASED_REASONS, TABLE_PAGE_SIZE } from '../constant';
+import {
+  EMPTY_VALUE,
+  INACTIVE_REASON_LABEL,
+  LOCK_EXPIRY_NOTE,
+  LOCK_ORIGIN_LABEL,
+  LOCK_STATE_TAG,
+  RELEASED_REASONS,
+  TABLE_PAGE_SIZE,
+} from '../constant';
 
 export const PlacementsPage = () => {
   const { data: reservations = [], isLoading } = useReservations();
@@ -22,11 +31,16 @@ export const PlacementsPage = () => {
         <>
           <div>{lock.recruiterName}</div>
           <div className="muted small">{lock.recruiterCompany}</div>
+          {lock.origin !== LockOrigin.Recruiter && <div className="muted small">{LOCK_ORIGIN_LABEL[lock.origin]}</div>}
         </>
       ),
     },
     { title: 'Locked at', key: 'lockedAt', render: (_, lock) => formatDateTime(lock.lockedAt) },
-    { title: 'Release at', key: 'lockReleaseAt', render: (_, lock) => formatDateTime(lock.lockReleaseAt) },
+    {
+      title: 'Release at',
+      key: 'lockReleaseAt',
+      render: (_, lock) => (lock.lockReleaseAt === undefined ? LOCK_NO_EXPIRY_LABEL : formatDateTime(lock.lockReleaseAt)),
+    },
     {
       title: 'State',
       key: 'state',
@@ -38,8 +52,8 @@ export const PlacementsPage = () => {
       ),
     },
     {
-      title: 'Employer',
-      key: 'employer',
+      title: 'Aggregator',
+      key: 'aggregator',
       render: (_, lock) => lock.employerName ?? <span className="muted">Not saved</span>,
     },
     { title: 'Start date', key: 'startDate', render: (_, lock) => formatDate(lock.startDate) },

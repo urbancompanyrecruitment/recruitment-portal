@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Recruitment and onboarding portals: partner registration, recruiter placements and business-team tracking",
+  "description": "Recruitment and onboarding portals: partner registration, recruiter sign-up and placements, admin tracking",
   "engines": {
     "node": ">=20"
   },
@@ -25,7 +25,6 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
-    "@types/google.accounts": "^0.0.18",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

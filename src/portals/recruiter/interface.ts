@@ -47,15 +47,16 @@ export interface CandidateTabConfig {
 
 export interface PlacementFormValues {
   startDate: Dayjs;
-  employerName: string;
-}
-
-export interface DemoAccount {
-  label: string;
-  email: string;
+  aggregatorId: string;
 }
 
 export interface LoginFormValues {
   email: string;
   password: string;
+}
+
+export interface SignUpFormValues extends LoginFormValues {
+  name: string;
+  company: string;
+  confirmPassword: string;
 }

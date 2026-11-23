@@ -1,9 +1,10 @@
 import { Button, Card, Col, Flex, Row, Tag, Typography } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { COOKING_FREQUENCY_LABEL } from '@/domain/constant';
+import { formatLocation } from '@/domain/format';
 import { ReservationStatus, UserRole } from '@/domain/interface';
 import { formatLockStatus, getReservationStatus, isLockActive } from '@/domain/reservation';
-import { useSessionUser } from '@/shared/auth/AuthProvider';
+import { useSessionUser } from '@/shared/auth/session';
 import { CandidateAvatar, PageHeader, StatTile } from '@/shared/components/ui';
 import { DASHBOARD_PREVIEW_COUNT, DASHBOARD_STATS, RECRUITER_PATH, WORKFLOW_STEPS } from '../constant';
 import { useAvailableCandidates, useMyReservations, useOpenProfile } from '../hooks';
@@ -85,7 +86,7 @@ export const DashboardPage = () => {
                     <div className="recruiter-row-main">
                       <Typography.Text strong>{candidate.name}</Typography.Text>
                       <div className="muted small">
-                        {candidate.city}, {candidate.country} · Cooking: {COOKING_FREQUENCY_LABEL[candidate.cookingFrequency]}
+                        {formatLocation(candidate)} · Cooking: {COOKING_FREQUENCY_LABEL[candidate.cookingFrequency]}
                       </div>
                     </div>
                     <Button type="link" loading={openingId === candidate.id} onClick={() => openProfile(candidate.id)}>

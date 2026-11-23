@@ -1,13 +1,24 @@
+import { ROLE_API_SEGMENT } from '@/api/constant';
 import { environment } from '@/config';
+import { UserRole } from '@/domain/interface';
 import { ApiStub } from './interface';
 
 const BASE_URL = 'http://localhost';
+
+export const signedOut = (role: UserRole): ApiStub => ({
+  path: `/${ROLE_API_SEGMENT[role]}/auth/me`,
+  status: 401,
+  body: { error: { code: 'UNAUTHORIZED' } },
+});
 
 export const stubApi = (stubs: ApiStub[]) => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), BASE_URL);
     const method = init?.method ?? 'GET';
-    const stub = stubs.find(item => (item.method ?? 'GET') === method && `${environment.apiBaseUrl}${item.path}` === url.pathname);
+    const candidates = stubs.filter(item => (item.method ?? 'GET') === method);
+    const stub =
+      candidates.find(item => `${environment.apiBaseUrl}${item.path}` === `${url.pathname}${url.search}`) ??
+      candidates.find(item => `${environment.apiBaseUrl}${item.path}` === url.pathname);
 
     if (!stub) throw new Error(`No API stub for ${method} ${url.pathname}`);
 

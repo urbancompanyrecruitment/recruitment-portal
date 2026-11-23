@@ -1,9 +1,9 @@
 import { CheckCircleFilled } from '@ant-design/icons';
-import { Avatar, Card, Flex, Tag, Typography } from 'antd';
+import { Avatar, Button, Card, Col, Flex, Row, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { getInitials } from '@/domain/format';
 import { CANDIDATE_AVATAR_STYLE } from './constant';
-import { NoticeProps, PageHeaderProps, StatTileProps } from './interface';
+import { NoticeProps, OptionCardsProps, PageHeaderProps, StatTileProps } from './interface';
 
 export const PageHeader = ({ title, subtitle, extra, back }: PageHeaderProps) => (
   <div className="page-header">
@@ -57,4 +57,24 @@ export const CandidateAvatar = ({ name, size = 42 }: { name: string; size?: numb
   <Avatar size={size} style={CANDIDATE_AVATAR_STYLE}>
     {getInitials(name)}
   </Avatar>
+);
+
+export const OptionCards = ({ options }: OptionCardsProps) => (
+  <Row gutter={[18, 18]}>
+    {options.map(option => (
+      <Col xs={24} md={12} key={option.to}>
+        <Card style={{ height: '100%' }}>
+          <Typography.Title level={3} style={{ marginTop: 0 }}>
+            {option.title}
+          </Typography.Title>
+          <Typography.Paragraph type="secondary">{option.description}</Typography.Paragraph>
+          <Link to={option.to}>
+            <Button type={option.primary ? 'primary' : 'default'} size="large">
+              {option.action}
+            </Button>
+          </Link>
+        </Card>
+      </Col>
+    ))}
+  </Row>
 );

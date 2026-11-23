@@ -1,17 +1,23 @@
 import { UserRole } from '@/domain/interface';
 
-export const SESSION_STORAGE_KEY = 'recruitment-portal-sessions';
+export const SESSION_STALE_MS = 30_000;
 
-export const REQUIRED_BUSINESS_ACCESSES: string[] = [];
+export const HOME_PATH = '/';
 
-export const LOGIN_PATH: Record<UserRole, string> = {
-  [UserRole.Partner]: '/login',
-  [UserRole.Recruiter]: '/recruiter/login',
-  [UserRole.Business]: '/business/login',
+export const PORTAL_PATH: Record<UserRole, string> = {
+  [UserRole.Partner]: '/partner',
+  [UserRole.Recruiter]: '/recruiter',
+  [UserRole.Admin]: '/admin',
 };
 
-export const ACCESS_DENIED = {
-  title: 'No access to the recruitment dashboard',
-  subtitle: 'Ask the business team to grant you access through the UC access-control dashboard, then sign in again.',
-  signOut: 'Sign out',
+export const LOGIN_PATH: Record<UserRole, string> = {
+  [UserRole.Partner]: '/partner/login',
+  [UserRole.Recruiter]: '/recruiter/login',
+  [UserRole.Admin]: '/admin/login',
+};
+
+export const SIGNED_OUT_PATH: Record<UserRole, string> = {
+  [UserRole.Partner]: PORTAL_PATH[UserRole.Partner],
+  [UserRole.Recruiter]: PORTAL_PATH[UserRole.Recruiter],
+  [UserRole.Admin]: LOGIN_PATH[UserRole.Admin],
 };

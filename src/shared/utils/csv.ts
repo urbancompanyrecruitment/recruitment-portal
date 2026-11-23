@@ -4,6 +4,8 @@ const CSV_QUOTES = /^"|"$/g;
 
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
 
+const BYTE_ORDER_MARK = '\uFEFF';
+
 export const downloadTextFile = (content: string, fileName: string, type = CSV_MIME_TYPE): void => {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([content], { type }));
@@ -14,19 +16,22 @@ export const downloadTextFile = (content: string, fileName: string, type = CSV_M
 
 export const downloadCsv = (rows: unknown[][], fileName: string): void =>
   downloadTextFile(
-    '﻿' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n'),
+    BYTE_ORDER_MARK + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n'),
     fileName,
   );
 
-export const parseCsvColumn = (text: string, columnName: string): string[] => {
+export const parseCsvRecords = <Column extends string>(text: string, columns: Column[]): Record<Column, string>[] => {
   const rows = text
-    .replace('﻿', '')
+    .replace(BYTE_ORDER_MARK, '')
     .split(CSV_LINE_BREAK)
     .map(line => line.trim())
     .filter(Boolean)
     .map(line => line.split(',').map(cell => cell.trim().replace(CSV_QUOTES, '').trim()));
-  const headerIndex = rows[0]?.findIndex(cell => cell.toLowerCase() === columnName) ?? -1;
-  const column = headerIndex >= 0 ? headerIndex : 0;
+  const header = rows[0]?.map(cell => cell.toLowerCase()) ?? [];
+  const hasHeader = header.includes(columns[0]);
+  const indexes = columns.map((column, position) => (hasHeader ? header.indexOf(column) : position));
 
-  return rows.slice(headerIndex >= 0 ? 1 : 0).map(row => row[column] ?? '');
+  return rows
+    .slice(hasHeader ? 1 : 0)
+    .map(row => Object.fromEntries(columns.map((column, position) => [column, row[indexes[position]] ?? ''])) as Record<Column, string>);
 };

@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { DATE_FORMAT, DATE_TIME_FORMAT, ISO_DATE_FORMAT } from './constant';
+import { Candidate, PartnerCountry } from './interface';
 
 export const formatDate = (date: string | undefined, fallback = 'Not confirmed'): string =>
   date ? dayjs(date).format(DATE_FORMAT) : fallback;
@@ -15,3 +16,6 @@ export const getInitials = (name: string): string =>
     .slice(0, 2)
     .map(part => part[0].toUpperCase())
     .join('');
+
+export const formatLocation = (candidate: Pick<Candidate, 'city' | 'country'>): string =>
+  candidate.country === PartnerCountry.Others ? candidate.city : `${candidate.city}, ${candidate.country}`;

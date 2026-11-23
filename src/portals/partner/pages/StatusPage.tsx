@@ -1,33 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Descriptions, Spin, Steps } from 'antd';
+import { Alert, Button, Card, Descriptions, Flex, Spin, Steps, Typography } from 'antd';
 import dayjs from 'dayjs';
+import { useState } from 'react';
 import { getPartnerStatus } from '@/api/candidates';
 import { QUERY_KEY } from '@/api/constant';
 import { useInterviewCities } from '@/api/hooks';
 import { DAY_DATE_FORMAT } from '@/domain/constant';
 import { PartnerStage, UserRole } from '@/domain/interface';
 import { findCity } from '@/domain/slot';
-import { useSessionUser } from '@/shared/auth/AuthProvider';
+import { useSessionUser } from '@/shared/auth/session';
 import { Notice, PageHeader } from '@/shared/components/ui';
-import { PARTNER_STATUS } from '../constant';
-
-const STAGE_ORDER = [PartnerStage.Registered, PartnerStage.Verified, PartnerStage.Placed, PartnerStage.Joined];
+import { RescheduleModal } from '../components/RescheduleModal';
+import { FAILED_STAGE_INDEX, PARTNER_RESCHEDULE, PARTNER_STATUS, STAGE_ORDER } from '../constant';
 
 export const StatusPage = () => {
   const user = useSessionUser(UserRole.Partner);
   const status = useQuery({ queryKey: QUERY_KEY.partnerStatus(user.id), queryFn: getPartnerStatus });
   const cities = useInterviewCities();
+  const [rescheduling, setRescheduling] = useState(false);
 
   if (!status.data) return <Spin />;
 
   const { candidate, slot, stage } = status.data;
   const city = findCity(cities.data ?? [], candidate.interviewCity);
+  const failed = stage === PartnerStage.VerificationFailed;
+  const stages = PARTNER_STATUS.stages.map((item, index) => (failed && index === FAILED_STAGE_INDEX ? PARTNER_STATUS.failedStage : item));
 
   return (
     <div className="partner-narrow">
       <PageHeader title={PARTNER_STATUS.title} subtitle={PARTNER_STATUS.subtitle} />
+      {failed && <Alert type="error" showIcon title={PARTNER_STATUS.failedNotice} style={{ marginBottom: 18 }} />}
       <Card style={{ marginBottom: 18 }}>
-        <Steps current={STAGE_ORDER.indexOf(stage)} items={PARTNER_STATUS.stages} />
+        <Steps
+          current={failed ? FAILED_STAGE_INDEX : STAGE_ORDER.indexOf(stage)}
+          status={failed ? 'error' : undefined}
+          items={stages}
+        />
       </Card>
       <Card>
         <Descriptions
@@ -35,13 +43,13 @@ export const StatusPage = () => {
           size="small"
           items={[
             { key: 'name', label: 'Name', children: candidate.name },
-            { key: 'email', label: 'Email', children: candidate.email },
             { key: 'primary', label: 'Primary mobile', children: candidate.primaryPhone },
             {
               key: 'singapore',
               label: 'Singapore mobile',
               children: candidate.singaporePhone ?? <span className="muted">{PARTNER_STATUS.singaporeMissing}</span>,
             },
+            ...(candidate.hubName ? [{ key: 'hub', label: PARTNER_STATUS.hubLabel, children: candidate.hubName }] : []),
             ...(slot && city
               ? [
                   { key: 'centre', label: 'Interview centre', children: `${city.centre}, ${city.name}` },
@@ -52,12 +60,21 @@ export const StatusPage = () => {
               : [{ key: 'no-slot', label: 'Interview', children: PARTNER_STATUS.noSlot }]),
           ]}
         />
+        {stage === PartnerStage.Registered && (
+          <Flex justify="space-between" align="center" gap={16} wrap className="partner-reschedule">
+            <Typography.Text type="secondary" className="small partner-reschedule-note">
+              {PARTNER_RESCHEDULE.note}
+            </Typography.Text>
+            <Button onClick={() => setRescheduling(true)}>{PARTNER_RESCHEDULE.action}</Button>
+          </Flex>
+        )}
         {candidate.onboarding && (
           <Notice tone="success" style={{ marginTop: 20, marginBottom: 0 }}>
             {PARTNER_STATUS.onboardingNote}
           </Notice>
         )}
       </Card>
+      <RescheduleModal open={rescheduling} country={candidate.country} onClose={() => setRescheduling(false)} />
     </div>
   );
 };
