@@ -44,6 +44,10 @@ Start `partner-recruitment-service` first (`npm run dev` there, after `npm run m
 
 In production the app and the service must share one origin (route `/api/*` to the service at the load balancer) so the httpOnly session cookies work.
 
+### Deploying on Vercel
+
+`vercel.json` builds the app as a Vite project (so `server.js` and express are not used there), serves `dist/`, sends unknown paths to `index.html`, and forwards `/api/*` to the `partner-recruitment-service` Vercel project so both share the portal's address. If that project gets a different address than `https://partner-recruitment-service.vercel.app`, change the `destination` of the first rewrite. No environment variables are needed.
+
 ## Stack
 
 Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Router 7 · TanStack Query 5 · dayjs · Vitest + Testing Library · express (production static server only).
@@ -54,6 +58,7 @@ Vite · React 19 · TypeScript · antd 6 (themed to the PRD mockups) · React Ro
 environment/      per-mode config (development / staging / production): apiBaseUrl
 public/terms/     Terms and Conditions PDFs linked from partner and recruiter sign-up (placeholders until the final documents arrive; keep the file names)
 server.js         express static server used by the Docker image (serves dist/, SPA fallback, /healthcheck)
+vercel.json       Vercel build, /api forwarding to the service, SPA fallback and cache headers
 src/
   app/            routes: home, the three portals, redirects for the old partner links
   config/         picks environment/<mode>.json from import.meta.env.MODE
