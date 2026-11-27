@@ -1,12 +1,13 @@
 import { Button, Card, Result } from 'antd';
-import { UserRole } from '@/domain/interface';
+import { RecruiterStatus, UserRole } from '@/domain/interface';
 import { useAuth, useSessionUser } from '@/shared/auth/session';
 import { PublicShell } from '@/shared/components/PublicShell';
-import { PENDING_APPROVAL } from '../constant';
+import { ACCOUNT_STATUS_COPY, ACCOUNT_STATUS_SIGN_OUT } from '../constant';
 
-export const PendingApprovalPage = () => {
+export const AccountStatusPage = () => {
   const recruiter = useSessionUser(UserRole.Recruiter);
   const { signOut } = useAuth();
+  const copy = ACCOUNT_STATUS_COPY[recruiter.recruiterStatus ?? RecruiterStatus.Pending] ?? ACCOUNT_STATUS_COPY[RecruiterStatus.Pending];
 
   return (
     <PublicShell
@@ -15,13 +16,13 @@ export const PendingApprovalPage = () => {
         <>
           <span className="muted small">{recruiter.name}</span>
           <Button size="small" onClick={() => signOut(UserRole.Recruiter)}>
-            {PENDING_APPROVAL.signOut}
+            {ACCOUNT_STATUS_SIGN_OUT}
           </Button>
         </>
       }
     >
       <Card>
-        <Result status="info" title={PENDING_APPROVAL.message} />
+        {copy && <Result status={copy.status} title={copy.title} subTitle={copy.message} />}
       </Card>
     </PublicShell>
   );

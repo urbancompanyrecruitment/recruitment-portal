@@ -1,11 +1,12 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { API_ERROR, QUERY_KEY } from '@/api/constant';
 import { LOCK_NO_EXPIRY_LABEL, PARTNER_STATE_TAG, TERMS } from '@/domain/constant';
-import { PartnerState, UserRole } from '@/domain/interface';
+import { PartnerState, RecruiterStatus, UserRole } from '@/domain/interface';
 import { Sessions } from '@/shared/auth/interface';
 import { CHANGE_PASSWORD } from '@/shared/components/constant';
+import { FORGOT_PASSWORD, RESET_PASSWORD } from '@/shared/passwordReset/constant';
 import { REGISTRATION_COPY } from '@/shared/registration/constant';
 import { RegistrationMode } from '@/shared/registration/interface';
 import { RECRUITER_A_SESSION, RECRUITER_B_SESSION, RECRUITER_PENDING_SESSION } from '@/test/constant';
@@ -30,10 +31,13 @@ import { renderWithProviders } from '@/test/renderWithProviders';
 import { chooseFirstSlot, chooseOption, searchOption } from '@/test/select';
 import { requestsTo, signedOut, stubApi } from '@/test/stubFetch';
 import {
+  ACCOUNT_STATUS_COPY,
+  ACCOUNT_STATUS_SIGN_OUT,
+  MY_CANDIDATES,
   NO_EXPIRY_LOCK,
-  PENDING_APPROVAL,
   PLACEMENT_FINAL_NOTE,
   PLACEMENT_FORM,
+  PROFILE_FILTER,
   RECRUITER_HOME,
   RECRUITER_HOME_OPTIONS,
   RECRUITER_LOGIN,
@@ -42,6 +46,7 @@ import {
   RECRUITER_SIGN_UP,
   REGISTER_PARTNER,
   REGISTERED_PARTNERS,
+  REGISTERED_STATUS_FILTER,
 } from './constant';
 import RecruiterPortal from './index';
 
@@ -68,6 +73,10 @@ const WITHOUT_AGGREGATORS: ApiStub[] = [
 ];
 
 const RECRUITER_COPY = REGISTRATION_COPY[RegistrationMode.Recruiter];
+
+const PENDING_TITLE = ACCOUNT_STATUS_COPY[RecruiterStatus.Pending]?.title ?? '';
+
+const SUSPENDED_TITLE = ACCOUNT_STATUS_COPY[RecruiterStatus.Suspended]?.title ?? '';
 
 const chooseAggregator = async (name: string) => {
   fireEvent.mouseDown(await screen.findByLabelText(PLACEMENT_FORM.aggregatorLabel));
@@ -133,7 +142,7 @@ describe('Recruiter portal', () => {
     await userEvent.type(screen.getByLabelText('Confirm password'), '!');
     await userEvent.click(screen.getByRole('button', { name: RECRUITER_SIGN_UP.submit }));
 
-    expect(await screen.findByText(PENDING_APPROVAL.message)).toBeInTheDocument();
+    expect(await screen.findByText(PENDING_TITLE)).toBeInTheDocument();
     expect(requestsTo(fetchMock, 'POST', '/recruiter/sign-up')[0]).toEqual({
       name: 'Priya Nair',
       company: 'SwiftStaff Agency',
@@ -162,7 +171,7 @@ describe('Recruiter portal', () => {
     await userEvent.click(screen.getByRole('button', { name: RECRUITER_SIGN_UP.submit }));
 
     expect(await screen.findByText(API_ERROR.duplicateEmail)).toBeInTheDocument();
-    expect(screen.queryByText(PENDING_APPROVAL.message)).not.toBeInTheDocument();
+    expect(screen.queryByText(PENDING_TITLE)).not.toBeInTheDocument();
   }, 20000);
 
   it('keeps a recruiter who is not approved yet out of every feature page, then lets them in once approved', async () => {
@@ -178,8 +187,8 @@ describe('Recruiter portal', () => {
     pages.forEach(route => {
       const view = renderPortal(route, { recruiter: RECRUITER_PENDING_SESSION });
 
-      expect(screen.getByText(PENDING_APPROVAL.message)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: PENDING_APPROVAL.signOut })).toBeInTheDocument();
+      expect(screen.getByText(PENDING_TITLE)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: ACCOUNT_STATUS_SIGN_OUT })).toBeInTheDocument();
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
 
       view.unmount();
@@ -192,10 +201,99 @@ describe('Recruiter portal', () => {
     await act(() => queryClient.invalidateQueries({ queryKey: QUERY_KEY.currentUser(UserRole.Recruiter) }));
 
     expect(await screen.findByText('2 available professionals')).toBeInTheDocument();
-    expect(screen.queryByText(PENDING_APPROVAL.message)).not.toBeInTheDocument();
+    expect(screen.queryByText(PENDING_TITLE)).not.toBeInTheDocument();
   });
 
-  it('explains why a suspended or rejected recruiter cannot sign in', async () => {
+  it('signs a suspended recruiter in to a page that says the account is suspended, and opens no feature', async () => {
+    const suspended = { ...RECRUITERS[0], status: RecruiterStatus.Suspended, active: false };
+    const fetchMock = stubApi([
+      ...BASE_STUBS,
+      signedOut(UserRole.Recruiter),
+      { method: 'POST', path: '/recruiter/auth/login', body: suspended },
+    ]);
+    renderPortal(RECRUITER_PATH.login);
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'alex.morgan@brightpath.sg');
+    await userEvent.type(screen.getByLabelText('Password'), 'Recruiter123!');
+    await userEvent.click(screen.getByRole('button', { name: /Sign in/ }));
+
+    expect(await screen.findByText(SUSPENDED_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(PENDING_TITLE)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ACCOUNT_STATUS_SIGN_OUT })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(requestsTo(fetchMock, 'GET', '/recruiter/partners/available')).toHaveLength(0);
+    expect(requestsTo(fetchMock, 'GET', '/recruiter/locks')).toHaveLength(0);
+  });
+
+  it('emails a reset link from the forgot-password page linked on the sign-in page', async () => {
+    const fetchMock = stubApi([signedOut(UserRole.Recruiter), { method: 'POST', path: '/recruiter/auth/forgot-password', status: 204 }]);
+    renderPortal(RECRUITER_PATH.login);
+
+    expect(await screen.findByRole('link', { name: FORGOT_PASSWORD.link })).toHaveAttribute('href', '/recruiter/forgot-password');
+
+    await userEvent.click(screen.getByRole('link', { name: FORGOT_PASSWORD.link }));
+    await userEvent.type(await screen.findByLabelText('Email'), 'Alex.Morgan@BrightPath.sg');
+    await userEvent.click(screen.getByRole('button', { name: FORGOT_PASSWORD.submit }));
+
+    expect(await screen.findByText(FORGOT_PASSWORD.sentTitle)).toBeInTheDocument();
+    expect(requestsTo(fetchMock, 'POST', '/recruiter/auth/forgot-password')).toEqual([{ email: 'alex.morgan@brightpath.sg' }]);
+  });
+
+  it('sets a new password from the emailed link and explains an expired link', async () => {
+    const fetchMock = stubApi([signedOut(UserRole.Recruiter), { method: 'POST', path: '/recruiter/auth/reset-password', status: 204 }]);
+    const view = renderPortal('/recruiter/reset-password#token=abc123');
+
+    await userEvent.type(await screen.findByLabelText(RESET_PASSWORD.newLabel), 'NewPassword123');
+    await userEvent.type(screen.getByLabelText(RESET_PASSWORD.confirmLabel), 'NewPassword124');
+    await userEvent.click(screen.getByRole('button', { name: RESET_PASSWORD.submit }));
+
+    expect(await screen.findByText(RESET_PASSWORD.mismatch)).toBeInTheDocument();
+    expect(requestsTo(fetchMock, 'POST', '/recruiter/auth/reset-password')).toHaveLength(0);
+
+    await userEvent.clear(screen.getByLabelText(RESET_PASSWORD.confirmLabel));
+    await userEvent.type(screen.getByLabelText(RESET_PASSWORD.confirmLabel), 'NewPassword123');
+    await userEvent.click(screen.getByRole('button', { name: RESET_PASSWORD.submit }));
+
+    expect(await screen.findByText(RESET_PASSWORD.doneTitle)).toBeInTheDocument();
+    expect(requestsTo(fetchMock, 'POST', '/recruiter/auth/reset-password')).toEqual([{ token: 'abc123', password: 'NewPassword123' }]);
+    expect(screen.getByRole('link', { name: RESET_PASSWORD.signIn })).toHaveAttribute('href', RECRUITER_PATH.login);
+
+    view.unmount();
+    stubApi([
+      signedOut(UserRole.Recruiter),
+      { method: 'POST', path: '/recruiter/auth/reset-password', status: 400, body: { error: { code: 'RESET_LINK_INVALID' } } },
+    ]);
+    renderPortal('/recruiter/reset-password#token=used');
+
+    await userEvent.type(await screen.findByLabelText(RESET_PASSWORD.newLabel), 'NewPassword123');
+    await userEvent.type(screen.getByLabelText(RESET_PASSWORD.confirmLabel), 'NewPassword123');
+    await userEvent.click(screen.getByRole('button', { name: RESET_PASSWORD.submit }));
+
+    expect(await screen.findByText(API_ERROR.resetLinkInvalid)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: RESET_PASSWORD.requestNewLink })).toHaveAttribute('href', '/recruiter/forgot-password');
+  }, 20000);
+
+  it('signs the tab out after a reset, so the sign-in link opens the sign-in form', async () => {
+    stubApi([{ method: 'POST', path: '/recruiter/auth/reset-password', status: 204 }, signedOut(UserRole.Recruiter)]);
+    renderPortal('/recruiter/reset-password#token=abc123', { recruiter: RECRUITER_A_SESSION });
+
+    await userEvent.type(await screen.findByLabelText(RESET_PASSWORD.newLabel), 'NewPassword123');
+    await userEvent.type(screen.getByLabelText(RESET_PASSWORD.confirmLabel), 'NewPassword123');
+    await userEvent.click(screen.getByRole('button', { name: RESET_PASSWORD.submit }));
+    await userEvent.click(await screen.findByRole('link', { name: RESET_PASSWORD.signIn }));
+
+    expect(await screen.findByText('Welcome back')).toBeInTheDocument();
+  }, 20000);
+
+  it('asks for the emailed link when the reset page opens without a token', async () => {
+    stubApi([signedOut(UserRole.Recruiter)]);
+    renderPortal('/recruiter/reset-password');
+
+    expect(await screen.findByText(RESET_PASSWORD.missingToken)).toBeInTheDocument();
+    expect(screen.queryByLabelText(RESET_PASSWORD.newLabel)).not.toBeInTheDocument();
+  });
+
+  it('explains why a rejected recruiter cannot sign in', async () => {
     stubApi([
       signedOut(UserRole.Recruiter),
       { method: 'POST', path: '/recruiter/auth/login', status: 403, body: { error: { code: 'RECRUITER_REJECTED' } } },
@@ -341,6 +439,50 @@ describe('Recruiter portal', () => {
     expect(screen.queryByText('Ana Reyes')).not.toBeInTheDocument();
   });
 
+  it('searches my candidates by name or aggregator and keeps the tab counts in step with the search', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/recruiter/my-candidates', { recruiter: RECRUITER_A_SESSION });
+
+    expect(await screen.findByText('Ana Reyes')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(MY_CANDIDATES.searchLabel), 'homecare');
+
+    await waitFor(() => expect(screen.queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(screen.getByText('Ana Reyes')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Awaiting placement (0)' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Placed (1)' })).toBeInTheDocument();
+  });
+
+  it('filters available profiles by nationality and by experience', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/recruiter/profiles', { recruiter: RECRUITER_A_SESSION });
+
+    expect(await screen.findByText('2 available professionals')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText(PROFILE_FILTER.nationalityLabel));
+    fireEvent.click(await screen.findByTitle('Indonesia'));
+    expect(await screen.findByText('1 available professionals')).toBeInTheDocument();
+    expect(screen.getByText('Siti Rahma')).toBeInTheDocument();
+    expect(screen.queryByText('Thandar Aung')).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText(PROFILE_FILTER.deepCleaningLabel));
+    fireEvent.click(await screen.findByTitle('No'));
+    expect(await screen.findByText('0 available professionals')).toBeInTheDocument();
+  });
+
+  it('filters the candidates a recruiter registered by status', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/recruiter/my-candidates', { recruiter: RECRUITER_A_SESSION });
+
+    const card = (await screen.findByText(`${REGISTERED_PARTNERS.title} (1)`)).closest('.ant-card') as HTMLElement;
+    await within(card).findByText(REGISTERED_BY_ALEX.name);
+
+    fireEvent.mouseDown(within(card).getByLabelText(REGISTERED_STATUS_FILTER.label));
+    fireEvent.click(await screen.findByTitle(PARTNER_STATE_TAG[PartnerState.Verified].label));
+
+    expect(await within(card).findByText(REGISTERED_PARTNERS.searchEmpty)).toBeInTheDocument();
+  });
+
   it('saves the chosen aggregator and the start date as the placement', async () => {
     const fetchMock = stubApi([
       ...BASE_STUBS,
@@ -409,7 +551,7 @@ describe('Recruiter portal', () => {
 
     expect(await screen.findByRole('heading', { name: REGISTER_PARTNER.title })).toBeInTheDocument();
     expect(screen.getByText(REGISTER_PARTNER.note)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Register a partner' })).toHaveAttribute('href', RECRUITER_PATH.registerPartner);
+    expect(screen.getByRole('link', { name: 'Register a candidate' })).toHaveAttribute('href', RECRUITER_PATH.registerPartner);
     expect(screen.queryByLabelText('Where did you hear about us?')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
 
@@ -425,7 +567,7 @@ describe('Recruiter portal', () => {
     await chooseOption(RECRUITER_COPY.cookingLabel, 'Daily');
     await chooseOption('Interview city', 'Tampines, Singapore');
     await chooseFirstSlot();
-    await userEvent.click(screen.getByRole('checkbox', { name: /The partner consents/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /The candidate consents/ }));
     await userEvent.click(screen.getByRole('button', { name: RECRUITER_COPY.submit }));
 
     expect(await screen.findByText(REGISTER_PARTNER.successTitle('Test Partner'))).toBeInTheDocument();

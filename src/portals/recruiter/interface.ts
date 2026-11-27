@@ -1,6 +1,6 @@
 import { Dayjs } from 'dayjs';
 import { AvailableCandidate } from '@/api/interface';
-import { ReservationStatus } from '@/domain/interface';
+import { ReservationStatus, YesNoFilter } from '@/domain/interface';
 
 export enum ProfileSort {
   Verified = 'verified',
@@ -22,6 +22,10 @@ export enum CandidateTab {
 export interface ProfileFilters {
   search: string;
   country?: string;
+  nationality?: string;
+  deepCleaning?: YesNoFilter;
+  comfortableWithDogs?: YesNoFilter;
+  singaporePhone?: YesNoFilter;
   sort: ProfileSort;
 }
 
@@ -59,4 +63,10 @@ export interface SignUpFormValues extends LoginFormValues {
   name: string;
   company: string;
   confirmPassword: string;
+}
+
+export interface AccountStatusCopy {
+  status: 'info' | 'warning';
+  title: string;
+  message: string;
 }

@@ -7,7 +7,7 @@ import { useInterviewCities } from '@/api/hooks';
 import { RegistrationResult } from '@/api/interface';
 import { DAY_DATE_FORMAT } from '@/domain/constant';
 import { findCity } from '@/domain/slot';
-import { Notice, PageHeader } from '@/shared/components/ui';
+import { PageHeader } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
 import { RegistrationMode } from '@/shared/registration/interface';
 import { PartnerDetailsForm } from '@/shared/registration/PartnerDetailsForm';
@@ -56,6 +56,7 @@ export const RegistrationPage = () => {
       >
         <Descriptions
           column={1}
+          colon={false}
           size="small"
           items={[
             { key: 'name', label: 'Name', children: candidate.name },
@@ -71,11 +72,6 @@ export const RegistrationPage = () => {
               : [{ key: 'no-slot', label: 'Interview', children: THANK_YOU.noSlot }]),
           ]}
         />
-        {candidate.onboarding && (
-          <Notice tone="success" style={{ marginTop: 20, marginBottom: 0 }}>
-            {THANK_YOU.onboardingNote}
-          </Notice>
-        )}
       </Result>
     </Card>
   );

@@ -5,18 +5,7 @@ import { CSV_FILE_CARD } from '../constant';
 import { CsvFileCardProps } from '../interface';
 
 export const CsvFileCard = ({ guide, summary, children }: CsvFileCardProps) => (
-  <Card title={guide.title} className="admin-file-card">
-    <Typography.Paragraph type="secondary">
-      {guide.purpose}
-      {guide.link && (
-        <>
-          {' '}
-          <a href={guide.link.href} target="_blank" rel="noreferrer">
-            {guide.link.label}
-          </a>
-        </>
-      )}
-    </Typography.Paragraph>
+  <Card title={CSV_FILE_CARD.title} className="admin-file-card">
     <div className="admin-file-label">{CSV_FILE_CARD.formatLabel}</div>
     <div className="muted small">{CSV_FILE_CARD.formatNote}</div>
     <Flex gap={6} wrap className="admin-file-columns">

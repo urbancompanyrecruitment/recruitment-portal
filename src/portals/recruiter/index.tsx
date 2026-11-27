@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { UserRole } from '@/domain/interface';
 import { RequireRole, SignedOutOnly } from '@/shared/auth/session';
+import { ForgotPasswordPage } from '@/shared/passwordReset/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/shared/passwordReset/ResetPasswordPage';
 import { RecruiterLayout } from './components/RecruiterLayout';
 import { RECRUITER_PATH } from './constant';
 import { CandidateProfilePage } from './pages/CandidateProfilePage';
@@ -32,6 +34,15 @@ const RecruiterPortal = () => (
       }
     />
     <Route
+      path="forgot-password"
+      element={
+        <SignedOutOnly role={UserRole.Recruiter} to={RECRUITER_PATH.dashboard}>
+          <ForgotPasswordPage role={UserRole.Recruiter} />
+        </SignedOutOnly>
+      }
+    />
+    <Route path="reset-password" element={<ResetPasswordPage role={UserRole.Recruiter} />} />
+    <Route
       path="signup"
       element={
         <SignedOutOnly role={UserRole.Recruiter} to={RECRUITER_PATH.dashboard}>
@@ -49,7 +60,7 @@ const RecruiterPortal = () => (
       <Route path="dashboard" element={<DashboardPage />} />
       <Route path="profiles" element={<ProfilesPage />} />
       <Route path="my-candidates" element={<MyCandidatesPage />} />
-      <Route path="register-partner" element={<RegisterPartnerPage />} />
+      <Route path="register-candidate" element={<RegisterPartnerPage />} />
       <Route path="candidates/:candidateId" element={<CandidateProfilePage />} />
       <Route path="*" element={<Navigate to={RECRUITER_PATH.dashboard} replace />} />
     </Route>

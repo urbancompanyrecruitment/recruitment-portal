@@ -4,6 +4,9 @@ export const SLOT_DAY_FORMAT = 'ddd, D MMM';
 
 export const NAME_PART_MAX_LENGTH = 59;
 
+/** Long question on a full-width row; the control keeps the half width of the fields above it. */
+export const COOKING_WRAPPER_COL = { xs: 24, md: 12 };
+
 export const PRIMARY_PHONE_ERROR = 'Use + and country code, e.g. +65 9123 4567';
 
 export const SINGAPORE_PHONE_ERROR = 'Use a Singapore mobile number, e.g. +65 9123 4567';
@@ -33,25 +36,25 @@ export const REGISTRATION_COPY: Record<RegistrationMode, RegistrationCopy> = {
     interviewTitle: 'Your interview',
     lastNameHint: 'You sign in with your primary mobile number and this last name.',
     primaryPhoneHint: 'Include the country code. You sign in with this number and the team contacts you on it.',
-    singaporePhoneHint: 'Optional. Needed before Urban Company can onboard you; you can share it later with the team.',
+    singaporePhoneHint: 'Optional. Needed before you can start work; you can share it later with the team.',
     copyPrimaryLabel: 'My primary number is my Singapore number',
     cookingLabel: 'How often did you cook in previous work?',
-    consent: 'I consent to Urban Company collecting my details and registering me as an Urban Company partner.',
+    consent: 'I consent to my details being collected and to being registered as a candidate.',
     termsNote: 'By registering you accept the',
     submit: 'Complete registration →',
     slotNotice: 'Your slot is confirmed when you submit. The business team will contact you before the interview.',
   },
   [RegistrationMode.Recruiter]: {
-    detailsTitle: 'Partner details',
-    interviewTitle: 'Partner interview',
-    lastNameHint: 'The partner signs in with their primary mobile number and this last name.',
-    primaryPhoneHint: 'Include the country code. The partner signs in with this number and the team contacts them on it.',
-    singaporePhoneHint: 'Optional. Needed before Urban Company can onboard the partner; the team can add it later.',
+    detailsTitle: 'Candidate details',
+    interviewTitle: 'Candidate interview',
+    lastNameHint: 'The candidate signs in with their primary mobile number and this last name.',
+    primaryPhoneHint: 'Include the country code. The candidate signs in with this number and the team contacts them on it.',
+    singaporePhoneHint: 'Optional. Needed before the candidate can start work; the team can add it later.',
     copyPrimaryLabel: 'The primary number is the Singapore number',
-    cookingLabel: 'How often did the partner cook in previous work?',
-    consent: 'The partner consents to Urban Company collecting these details and registering them as an Urban Company partner.',
-    termsNote: 'By registering the partner you confirm that they accept the',
-    submit: 'Register partner →',
-    slotNotice: 'The slot is confirmed when you submit. The business team will contact the partner before the interview.',
+    cookingLabel: 'How often did the candidate cook in previous work?',
+    consent: 'The candidate consents to these details being collected and to being registered as a candidate.',
+    termsNote: 'By registering the candidate you confirm that they accept the',
+    submit: 'Register candidate →',
+    slotNotice: 'The slot is confirmed when you submit. The business team will contact the candidate before the interview.',
   },
 };

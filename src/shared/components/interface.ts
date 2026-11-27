@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { UserRole } from '@/domain/interface';
+import { LabelledOption, UserRole } from '@/domain/interface';
 
 export type NoticeTone = 'info' | 'success' | 'warning';
 
@@ -13,6 +13,7 @@ export interface PortalShellProps {
   role: UserRole;
   workspace: string;
   navItems: NavItem[];
+  crumbItems?: NavItem[];
   sidebarFooter?: ReactNode;
   headerExtra?: ReactNode;
 }
@@ -71,4 +72,19 @@ export interface PortalOption {
 
 export interface OptionCardsProps {
   options: PortalOption[];
+}
+
+export interface SearchBoxProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+}
+
+export interface FilterSelectProps<Value extends string> {
+  label: string;
+  placeholder: string;
+  value?: Value;
+  options: LabelledOption<Value>[];
+  onChange: (value?: Value) => void;
 }

@@ -85,7 +85,10 @@ export interface CandidateFilters {
   state?: PartnerState;
   cityKey?: string;
   source?: RecruitmentSource;
+  hasSingaporePhone?: SingaporePhoneFilter;
 }
+
+export type SingaporePhoneFilter = 'true' | 'false';
 
 export interface VerificationUploadRow {
   primaryPhone: string;
@@ -195,6 +198,11 @@ export interface CreatedAdmin {
 export interface ChangePasswordInput {
   currentPassword: string;
   newPassword: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  password: string;
 }
 
 export interface TemporaryPasswordResult {

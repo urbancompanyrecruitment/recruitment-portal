@@ -1,9 +1,9 @@
-import { CheckCircleFilled } from '@ant-design/icons';
-import { Avatar, Button, Card, Col, Flex, Row, Tag, Typography } from 'antd';
+import { CheckCircleFilled, SearchOutlined } from '@ant-design/icons';
+import { Avatar, Button, Card, Col, Flex, Input, Row, Select, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { getInitials } from '@/domain/format';
 import { CANDIDATE_AVATAR_STYLE } from './constant';
-import { NoticeProps, OptionCardsProps, PageHeaderProps, StatTileProps } from './interface';
+import { FilterSelectProps, NoticeProps, OptionCardsProps, PageHeaderProps, SearchBoxProps, StatTileProps } from './interface';
 
 export const PageHeader = ({ title, subtitle, extra, back }: PageHeaderProps) => (
   <div className="page-header">
@@ -47,7 +47,7 @@ export const Notice = ({ tone = 'info', children, style }: NoticeProps) => (
 export const VerificationTag = ({ verified }: { verified: boolean }) =>
   verified ? (
     <Tag color="success" icon={<CheckCircleFilled />}>
-      UC Verified
+      Verified
     </Tag>
   ) : (
     <Tag>Unverified</Tag>
@@ -77,4 +77,30 @@ export const OptionCards = ({ options }: OptionCardsProps) => (
       </Col>
     ))}
   </Row>
+);
+
+export const SearchBox = ({ value, onChange, placeholder, label }: SearchBoxProps) => (
+  <Input
+    allowClear
+    prefix={<SearchOutlined />}
+    placeholder={placeholder}
+    aria-label={label}
+    value={value}
+    onChange={event => onChange(event.target.value)}
+    className="table-search"
+  />
+);
+
+export const FilterSelect = <Value extends string>({ label, placeholder, value, options, onChange }: FilterSelectProps<Value>) => (
+  <Select<Value>
+    allowClear
+    showSearch={options.length > 8}
+    optionFilterProp="label"
+    aria-label={label}
+    placeholder={placeholder}
+    className="list-filter"
+    value={value}
+    onChange={onChange}
+    options={options}
+  />
 );

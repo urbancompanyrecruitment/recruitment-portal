@@ -3,14 +3,16 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useInterviewCities } from '@/api/hooks';
 import { ReservedCandidate } from '@/api/interface';
-import { PARTNER_STATE_TAG } from '@/domain/constant';
+import { PARTNER_STATE_OPTIONS, PARTNER_STATE_TAG } from '@/domain/constant';
 import { formatDate, formatLocation } from '@/domain/format';
-import { Candidate, ReservationStatus, UserRole } from '@/domain/interface';
+import { Candidate, PartnerState, ReservationStatus, UserRole } from '@/domain/interface';
 import { formatLockStatus, getReservationStatus } from '@/domain/reservation';
 import { findCity, formatSlot, parseSlotId } from '@/domain/slot';
 import { useSessionUser } from '@/shared/auth/session';
-import { CandidateAvatar, PageHeader } from '@/shared/components/ui';
-import { CANDIDATE_TABS, RECRUITER_PATH, REGISTERED_PARTNERS } from '../constant';
+import { TABLE_PAGINATION, TABLE_SCROLL } from '@/shared/components/constant';
+import { CandidateAvatar, FilterSelect, PageHeader, SearchBox } from '@/shared/components/ui';
+import { matchesSearch } from '@/shared/utils/search';
+import { CANDIDATE_TABS, MY_CANDIDATES, RECRUITER_PATH, REGISTERED_PARTNERS, REGISTERED_STATUS_FILTER } from '../constant';
 import { useMyReservations, useRegisteredCandidates } from '../hooks';
 import { CandidateTab } from '../interface';
 
@@ -21,17 +23,27 @@ export const MyCandidatesPage = () => {
   const registered = useRegisteredCandidates(user.id);
   const { data: cities = [] } = useInterviewCities();
   const [activeTab, setActiveTab] = useState<CandidateTab>(CandidateTab.All);
+  const [search, setSearch] = useState('');
+  const [registeredSearch, setRegisteredSearch] = useState('');
+  const [registeredState, setRegisteredState] = useState<PartnerState>();
 
+  const matching = data.filter(({ candidate, reservation }) =>
+    matchesSearch(search, [candidate.name, candidate.nationality, candidate.city, candidate.country, reservation.employerName]),
+  );
   const rowsByTab = Object.fromEntries(
     CANDIDATE_TABS.map(tab => [
       tab.key,
-      data.filter(({ reservation }) => !tab.status || getReservationStatus(reservation) === tab.status),
+      matching.filter(({ reservation }) => !tab.status || getReservationStatus(reservation) === tab.status),
     ]),
   ) as Record<CandidateTab, ReservedCandidate[]>;
+  const registeredRows = (registered.data ?? [])
+    .filter(candidate => !registeredState || candidate.state === registeredState)
+    .filter(candidate => matchesSearch(registeredSearch, [candidate.name, candidate.primaryPhone, candidate.singaporePhone]));
 
   return (
     <>
-      <PageHeader title="My candidates" subtitle="Manage your locked profiles, confirmed placements and the partners you registered." />
+      <PageHeader title="My candidates" subtitle="Manage your locked profiles, confirmed placements and the candidates you registered." />
+      <SearchBox value={search} onChange={setSearch} placeholder={MY_CANDIDATES.searchPlaceholder} label={MY_CANDIDATES.searchLabel} />
       <Tabs
         activeKey={activeTab}
         onChange={key => setActiveTab(key as CandidateTab)}
@@ -45,8 +57,8 @@ export const MyCandidatesPage = () => {
           rowKey={row => row.reservation.id}
           loading={isLoading}
           dataSource={rowsByTab[activeTab]}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
+          pagination={TABLE_PAGINATION}
+          scroll={TABLE_SCROLL}
           locale={{
             emptyText: (
               <Empty description="No candidates here yet">
@@ -114,15 +126,30 @@ export const MyCandidatesPage = () => {
         <Typography.Paragraph type="secondary" className="small recruiter-card-note">
           {REGISTERED_PARTNERS.note}
         </Typography.Paragraph>
+        <Flex gap={12} wrap className="recruiter-card-note">
+          <SearchBox
+            value={registeredSearch}
+            onChange={setRegisteredSearch}
+            placeholder={REGISTERED_PARTNERS.searchPlaceholder}
+            label={REGISTERED_PARTNERS.searchLabel}
+          />
+          <FilterSelect
+            label={REGISTERED_STATUS_FILTER.label}
+            placeholder={REGISTERED_STATUS_FILTER.placeholder}
+            value={registeredState}
+            options={PARTNER_STATE_OPTIONS}
+            onChange={setRegisteredState}
+          />
+        </Flex>
         <Table<Candidate>
           rowKey="id"
           loading={registered.isLoading}
-          dataSource={registered.data ?? []}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          locale={{ emptyText: REGISTERED_PARTNERS.empty }}
+          dataSource={registeredRows}
+          pagination={TABLE_PAGINATION}
+          scroll={TABLE_SCROLL}
+          locale={{ emptyText: registeredSearch.trim() || registeredState ? REGISTERED_PARTNERS.searchEmpty : REGISTERED_PARTNERS.empty }}
           columns={[
-            { key: 'name', title: 'Partner', render: (_, candidate) => <Typography.Text strong>{candidate.name}</Typography.Text> },
+            { key: 'name', title: 'Candidate', render: (_, candidate) => <Typography.Text strong>{candidate.name}</Typography.Text> },
             { key: 'primaryPhone', title: 'Primary mobile', render: (_, candidate) => candidate.primaryPhone },
             {
               key: 'slot',

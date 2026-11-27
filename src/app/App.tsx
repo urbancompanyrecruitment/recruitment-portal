@@ -5,7 +5,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { UserRole } from '@/domain/interface';
 import { HOME_PATH, PORTAL_PATH } from '@/shared/auth/constant';
 import { THEME } from '@/theme/constant';
-import { LEGACY_PARTNER_PATHS } from './constant';
+import { LEGACY_PARTNER_PATHS, LEGACY_PARTNER_PORTAL_PATH } from './constant';
+import { LegacyPartnerRedirect } from './LegacyPartnerRedirect';
 
 const HomePortal = lazy(() => import('@/portals/home'));
 const PartnerPortal = lazy(() => import('@/portals/partner'));
@@ -25,6 +26,7 @@ export const App = () => (
               <Route path={`${PORTAL_PATH[UserRole.Partner]}/*`} element={<PartnerPortal />} />
               <Route path={`${PORTAL_PATH[UserRole.Recruiter]}/*`} element={<RecruiterPortal />} />
               <Route path={`${PORTAL_PATH[UserRole.Admin]}/*`} element={<AdminPortal />} />
+              <Route path={`${LEGACY_PARTNER_PORTAL_PATH}/*`} element={<LegacyPartnerRedirect />} />
               {LEGACY_PARTNER_PATHS.map(path => (
                 <Route key={path} path={path} element={<Navigate to={`${PORTAL_PATH[UserRole.Partner]}${path}`} replace />} />
               ))}

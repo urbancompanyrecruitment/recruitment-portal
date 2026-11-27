@@ -1,10 +1,22 @@
 import { ReactNode } from 'react';
 import { CandidateFilters, HubUploadRow, SlotUploadRow, VerificationUploadRow } from '@/api/interface';
-import { AdminAccount, AdminReservation, AdminStatus, Aggregator, Candidate, RecruiterStatus, RecruiterWithStats } from '@/domain/interface';
+import {
+  AdminAccount,
+  AdminReservation,
+  AdminRole,
+  AdminStatus,
+  Aggregator,
+  Candidate,
+  InterviewSlot,
+  LockOrigin,
+  LockState,
+  RecruiterStatus,
+  RecruiterWithStats,
+} from '@/domain/interface';
 
 export interface TrackerRow {
   candidate: Candidate;
-  slotLabel: string;
+  slot?: InterviewSlot;
   reservation?: AdminReservation;
 }
 
@@ -15,15 +27,9 @@ export interface OverviewMetric {
   matches: (candidate: Candidate) => boolean;
 }
 
-export interface CsvFileLink {
-  label: string;
-  href: string;
-}
-
 export interface CsvFileGuide {
   title: string;
   purpose: string;
-  link?: CsvFileLink;
   action: string;
   columns: string[];
   conditions: string[];
@@ -44,6 +50,22 @@ export interface CsvFileCardProps {
 export interface PartnerFiltersProps {
   value: CandidateFilters;
   onChange: (filters: CandidateFilters) => void;
+  children?: ReactNode;
+}
+
+export interface LockFilters {
+  recruiterId?: string;
+  state?: LockState;
+  origin?: LockOrigin;
+}
+
+export interface RecruiterTableFilters {
+  status?: RecruiterStatus;
+}
+
+export interface AdminTableFilters {
+  role?: AdminRole;
+  status?: AdminStatus;
 }
 
 export interface StatusAction<Status> {
@@ -123,4 +145,36 @@ export interface TemporaryPasswordNotice {
 export interface TemporaryPasswordModalProps {
   notice?: TemporaryPasswordNotice;
   onClose: () => void;
+}
+
+export enum AdminTool {
+  SignedUpDownload = 'signed-up-download',
+  OpsUploadDownload = 'ops-upload-download',
+  VerifiedUpload = 'verified-upload',
+  HubUpload = 'hub-upload',
+  SlotUpload = 'slot-upload',
+  CreateRecruiter = 'create-recruiter',
+  CreateAdmin = 'create-admin',
+}
+
+export interface AdminToolConfig {
+  label: string;
+  title: string;
+  subtitle: string;
+  superAdminOnly?: boolean;
+}
+
+export interface AdminToolGroup {
+  title: string;
+  tools: AdminTool[];
+}
+
+export interface ToolPageProps {
+  tool: AdminTool;
+}
+
+export type CandidateDownloadFile = 'signedUp' | 'opsUpload';
+
+export interface CandidateDownloadProps {
+  file: CandidateDownloadFile;
 }

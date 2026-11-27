@@ -48,6 +48,7 @@ export const RegisterPartnerPage = () => {
       >
         <Descriptions
           column={1}
+          colon={false}
           size="small"
           items={[
             { key: 'name', label: 'Name', children: candidate.name },

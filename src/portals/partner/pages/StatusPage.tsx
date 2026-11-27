@@ -9,7 +9,7 @@ import { DAY_DATE_FORMAT } from '@/domain/constant';
 import { PartnerStage, UserRole } from '@/domain/interface';
 import { findCity } from '@/domain/slot';
 import { useSessionUser } from '@/shared/auth/session';
-import { Notice, PageHeader } from '@/shared/components/ui';
+import { PageHeader } from '@/shared/components/ui';
 import { RescheduleModal } from '../components/RescheduleModal';
 import { FAILED_STAGE_INDEX, PARTNER_RESCHEDULE, PARTNER_STATUS, STAGE_ORDER } from '../constant';
 
@@ -32,6 +32,7 @@ export const StatusPage = () => {
       {failed && <Alert type="error" showIcon title={PARTNER_STATUS.failedNotice} style={{ marginBottom: 18 }} />}
       <Card style={{ marginBottom: 18 }}>
         <Steps
+          titlePlacement="vertical"
           current={failed ? FAILED_STAGE_INDEX : STAGE_ORDER.indexOf(stage)}
           status={failed ? 'error' : undefined}
           items={stages}
@@ -40,6 +41,7 @@ export const StatusPage = () => {
       <Card>
         <Descriptions
           column={1}
+          colon={false}
           size="small"
           items={[
             { key: 'name', label: 'Name', children: candidate.name },
@@ -67,11 +69,6 @@ export const StatusPage = () => {
             </Typography.Text>
             <Button onClick={() => setRescheduling(true)}>{PARTNER_RESCHEDULE.action}</Button>
           </Flex>
-        )}
-        {candidate.onboarding && (
-          <Notice tone="success" style={{ marginTop: 20, marginBottom: 0 }}>
-            {PARTNER_STATUS.onboardingNote}
-          </Notice>
         )}
       </Card>
       <RescheduleModal open={rescheduling} country={candidate.country} onClose={() => setRescheduling(false)} />

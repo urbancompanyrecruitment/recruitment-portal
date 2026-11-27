@@ -272,11 +272,17 @@ export interface SessionUser {
   subtitle: string;
   approved: boolean;
   adminRole?: AdminRole;
+  recruiterStatus?: RecruiterStatus;
 }
 
 export interface TagStyle {
   label: string;
   color?: string;
+}
+
+export enum YesNoFilter {
+  Yes = 'yes',
+  No = 'no',
 }
 
 export interface LabelledOption<T> {

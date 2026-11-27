@@ -20,7 +20,7 @@ const PartnerPortal = () => {
       leading={partner ? <NotificationBell partnerId={partner.id} /> : undefined}
       actions={
         <>
-          <span className="muted small">{partner ? partner.name : PARTNER_HEADER.tagline}</span>
+          <span className="muted small public-header-identity">{partner ? partner.name : PARTNER_HEADER.tagline}</span>
           {partner ? (
             <>
               <Link to={PARTNER_ROUTE.status}>{PARTNER_HEADER.myStatus}</Link>

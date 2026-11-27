@@ -13,5 +13,8 @@ export const parseSlotId = (slotId: string, timeZone = INTERVIEW_TIME_ZONE): Int
   return { id: slotId, cityKey, date, time, timeZone, capacity: 0 };
 };
 
-export const formatSlot = (slot: InterviewSlot): string =>
-  `${dayjs(slot.date).format(DAY_DATE_FORMAT)} · ${slot.time} · ${slot.timeZone}`;
+export const formatSlotDay = (slot: InterviewSlot): string => dayjs(slot.date).format(DAY_DATE_FORMAT);
+
+export const formatSlotTime = (slot: InterviewSlot): string => `${slot.time} · ${slot.timeZone}`;
+
+export const formatSlot = (slot: InterviewSlot): string => `${formatSlotDay(slot)} · ${formatSlotTime(slot)}`;

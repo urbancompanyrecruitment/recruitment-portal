@@ -2,8 +2,9 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { API_ERROR } from '@/api/constant';
-import { LOCK_NO_EXPIRY_LABEL, PARTNER_STATE_TAG } from '@/domain/constant';
+import { ADMIN_ROLE_LABEL, LOCK_NO_EXPIRY_LABEL, PARTNER_STATE_TAG, RECRUITER_STATUS_TAG } from '@/domain/constant';
 import {
+  AdminRole,
   HubRowOutcome,
   ImportRowOutcome,
   LockOrigin,
@@ -44,23 +45,32 @@ import {
   ADMIN_MESSAGE,
   AGGREGATORS,
   APPROVAL_REQUESTS,
+  ACCESS_LOG,
+  ADMIN_TOOLS,
+  adminToolPath,
+  CREATE_RECRUITER,
   CSV_FILE_CARD,
   CSV_FILES,
+  DOWNLOAD_PAGE,
   HUB_OUTCOME_LABEL,
   IMPORT_OUTCOME_LABEL,
+  LIST_FILTER,
   LOCK_ORIGIN_LABEL,
   OPS_UPLOAD_FILE_NAME,
   OVERVIEW_PAGE,
   PARTNERS_PAGE,
+  PLACEMENTS_PAGE,
   RECRUITER_SEARCH,
   REGISTERED_BY_LABEL,
   RESET_PASSWORD,
+  SINGAPORE_PHONE_FILTER_OPTIONS,
   SLOT_OUTCOME_LABEL,
   SLOT_UPLOAD,
   TAG_RECRUITER,
   TEMPORARY_PASSWORD,
 } from './constant';
 import AdminPortal from './index';
+import { AdminTool } from './interface';
 
 const BASE_STUBS: ApiStub[] = [
   { path: '/admin/partners', body: CANDIDATES },
@@ -89,10 +99,10 @@ const renderPortal = (route: string, session: SessionUser | null = ADMIN_SESSION
 const OPS_UPLOAD_CSV =
   'name,phone,city_key,category_key,source_type,experiment_name\r\nThandar Aung,90000001,city_singapore_v2,cleaning_category,third_party,sg_recruitment_portal';
 
-const uploadCsv = async (index: number, content: string, fileName: string) => {
-  await screen.findByRole('heading', { name: PARTNERS_PAGE.title });
+const uploadCsv = async (tool: AdminTool, content: string, fileName: string) => {
+  await screen.findByRole('heading', { name: ADMIN_TOOLS[tool].title });
 
-  await userEvent.upload(document.querySelectorAll<HTMLInputElement>('input[type="file"]')[index], new File([content], fileName, { type: 'text/csv' }));
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File([content], fileName, { type: 'text/csv' }));
 };
 
 describe('Admin portal', () => {
@@ -175,19 +185,24 @@ describe('Admin portal', () => {
     fireEvent.click(await screen.findByTitle(PARTNER_STATE_TAG[PartnerState.VerificationFailed].label));
     await waitFor(() => expect(within(totalTile).getByText('1')).toBeInTheDocument());
 
-    expect(screen.getByRole('link', { name: 'Partners' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Candidates' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: OVERVIEW_PAGE.partnersLink }));
     expect(await screen.findByRole('heading', { name: PARTNERS_PAGE.title })).toBeInTheDocument();
   });
 
-  it('lists partners on the partners tab with their numbers, status, hub and recruiter', async () => {
+  it('lists candidates on the candidates tab with their numbers, status, hub and recruiter, and nothing else', async () => {
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     expect(await screen.findByRole('heading', { name: PARTNERS_PAGE.title })).toBeInTheDocument();
     const row = (await screen.findByText('Lin Lin Htet')).closest('tr') as HTMLElement;
-    expect(within(row).getAllByText('+6590000012')).toHaveLength(2);
-    expect(within(row).getByText('Lead created')).toBeInTheDocument();
+    expect(within(row).getByText('+6590000012')).toBeInTheDocument();
+    expect(within(row).getByText(`${PARTNERS_PAGE.singaporePhonePrefix} +6590000012`)).toBeInTheDocument();
+    expect(screen.queryByText('Lead created')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Urban Company|urbanclap|UC Verified/)).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /CSV/ })).not.toBeInTheDocument();
+    expect(screen.getByText(`1–${CANDIDATES.length} of ${CANDIDATES.length}`)).toBeInTheDocument();
     expect(within(row).getByText(PARTNER_STATE_TAG[PartnerState.SignedUp].label)).toBeInTheDocument();
     const thandar = screen.getByText('Thandar Aung').closest('tr') as HTMLElement;
     expect(within(thandar).getByText('Alex Morgan')).toBeInTheDocument();
@@ -202,7 +217,7 @@ describe('Admin portal', () => {
 
   it('filters the partners by status, so the ones who failed verification can be listed', async () => {
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     await screen.findByText('Lin Lin Htet');
     fireEvent.mouseDown(screen.getByLabelText('Filter by status'));
@@ -210,29 +225,84 @@ describe('Admin portal', () => {
 
     await waitFor(() => expect(screen.queryByText('Lin Lin Htet')).not.toBeInTheDocument());
     expect(screen.getByText(KHIN.name)).toBeInTheDocument();
-    expect(screen.getByText(PARTNERS_PAGE.signedUpSummary(1))).toBeInTheDocument();
-    expect(screen.getByText(PARTNERS_PAGE.opsUploadSummary(0, 1))).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: new RegExp(CSV_FILES.signedUp.action) })).toBeEnabled();
-    expect(screen.getByRole('button', { name: new RegExp(CSV_FILES.opsUpload.action) })).toBeDisabled();
   });
 
-  it('states the format and the conditions of every CSV download and upload', async () => {
+  it('searches candidates by name, mobile number, hub or recruiter', async () => {
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
+
+    await screen.findByText('Lin Lin Htet');
+    const search = screen.getByLabelText(PARTNERS_PAGE.searchLabel);
+
+    await userEvent.type(search, '9000 0012');
+    await waitFor(() => expect(screen.queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(screen.getByText('Lin Lin Htet')).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'tampines east');
+    await waitFor(() => expect(screen.queryByText('Lin Lin Htet')).not.toBeInTheDocument());
+    expect(screen.getByText('Ana Reyes')).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'jamie lee');
+    await waitFor(() => expect(screen.queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(screen.getByText('Siti Rahma')).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'nobody here');
+    expect(await screen.findByText(PARTNERS_PAGE.listEmpty)).toBeInTheDocument();
+  }, 20000);
+
+  it('links every CSV file and account form from the sidebar, each on its own page', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/admin/candidates');
 
     await screen.findByRole('heading', { name: PARTNERS_PAGE.title });
 
-    Object.values(CSV_FILES).forEach(file => {
-      const card = screen.getByText(file.title).closest('.ant-card') as HTMLElement;
+    Object.values(AdminTool).forEach(tool =>
+      expect(screen.getByRole('link', { name: ADMIN_TOOLS[tool].label })).toHaveAttribute('href', adminToolPath(tool)),
+    );
+
+    await userEvent.click(screen.getByRole('link', { name: ADMIN_TOOLS[AdminTool.HubUpload].label }));
+
+    expect(await screen.findByRole('heading', { name: ADMIN_TOOLS[AdminTool.HubUpload].title })).toBeInTheDocument();
+    expect(screen.getByText(`Admin workspace / ${ADMIN_TOOLS[AdminTool.HubUpload].label}`)).toBeInTheDocument();
+  });
+
+  it('hides the create-admin link from an ordinary admin', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/admin/candidates', OPS_ADMIN_SESSION);
+
+    await screen.findByRole('heading', { name: PARTNERS_PAGE.title });
+
+    expect(screen.getByRole('link', { name: ADMIN_TOOLS[AdminTool.CreateRecruiter].label })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: ADMIN_TOOLS[AdminTool.CreateAdmin].label })).not.toBeInTheDocument();
+  });
+
+  it('states the format and the conditions of every CSV download and upload on its page', async () => {
+    stubApi(BASE_STUBS);
+    const pages: Array<[AdminTool, keyof typeof CSV_FILES]> = [
+      [AdminTool.SignedUpDownload, 'signedUp'],
+      [AdminTool.OpsUploadDownload, 'opsUpload'],
+      [AdminTool.VerifiedUpload, 'verified'],
+      [AdminTool.HubUpload, 'hubs'],
+    ];
+
+    for (const [tool, key] of pages) {
+      const file = CSV_FILES[key];
+      const view = renderPortal(adminToolPath(tool));
+      expect(await screen.findByRole('heading', { name: file.title })).toBeInTheDocument();
+      const card = screen.getByText(CSV_FILE_CARD.title, { selector: '.ant-card-head-title' }).closest('.ant-card') as HTMLElement;
 
       file.columns.forEach(column => expect(within(card).getByText(column, { selector: 'code' })).toBeInTheDocument());
       file.conditions.forEach(condition => expect(within(card).getByText(condition)).toBeInTheDocument());
       expect(within(card).getByRole('button', { name: new RegExp(file.action) })).toBeInTheDocument();
-    });
+      expect(screen.queryByText(/Urban Company|urbanclap/)).not.toBeInTheDocument();
 
-    const opsCard = screen.getByText(CSV_FILES.opsUpload.title).closest('.ant-card') as HTMLElement;
-    expect(within(opsCard).getByRole('link', { name: 'ops.urbanclap.com/lead/bulkAdd' })).toHaveAttribute('href', 'https://ops.urbanclap.com/lead/bulkAdd');
-    expect(CSV_FILES.opsUpload.conditions).toContain('Only partners with a valid Singapore number are included.');
+      view.unmount();
+    }
+
+    expect(CSV_FILES.opsUpload.conditions).toContain('Only candidates with a valid Singapore number are included.');
   });
 
   it('downloads the ops upload file for the current filters and says how many partners go into it', async () => {
@@ -240,14 +310,14 @@ describe('Admin portal', () => {
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const fetchMock = stubApi([...BASE_STUBS, { path: '/admin/partners/ops-lead-upload.csv', text: OPS_UPLOAD_CSV }]);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.OpsUploadDownload));
 
-    const card = (await screen.findByText(CSV_FILES.opsUpload.title)).closest('.ant-card') as HTMLElement;
-    expect(await within(card).findByText(PARTNERS_PAGE.opsUploadSummary(4, CANDIDATES.length))).toBeInTheDocument();
+    const card = (await screen.findByText(CSV_FILE_CARD.title, { selector: '.ant-card-head-title' })).closest('.ant-card') as HTMLElement;
+    expect(await within(card).findByText(DOWNLOAD_PAGE.summary(4, CANDIDATES.length, true))).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByLabelText('Filter by status'));
     fireEvent.click(await screen.findByTitle(PARTNER_STATE_TAG[PartnerState.Verified].label));
-    expect(await within(card).findByText(PARTNERS_PAGE.opsUploadSummary(2, 2))).toBeInTheDocument();
+    expect(await within(card).findByText(DOWNLOAD_PAGE.summary(2, 2, true))).toBeInTheDocument();
 
     await userEvent.click(within(card).getByRole('button', { name: new RegExp(CSV_FILES.opsUpload.action) }));
 
@@ -261,14 +331,14 @@ describe('Admin portal', () => {
     click.mockRestore();
   });
 
-  it('downloads the signed-up partners file from its own button', async () => {
+  it('downloads the signed-up candidates file from its own page', async () => {
     const createObjectURL = vi.fn((_file: Blob) => 'blob:signed-up');
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const fetchMock = stubApi([...BASE_STUBS, { path: '/admin/partners/export.csv', text: 'name,location,primary_mobile' }]);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.SignedUpDownload));
 
-    expect(await screen.findByText(PARTNERS_PAGE.signedUpSummary(CANDIDATES.length))).toBeInTheDocument();
+    expect(await screen.findByText(DOWNLOAD_PAGE.summary(CANDIDATES.length, CANDIDATES.length, false))).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: new RegExp(CSV_FILES.signedUp.action) }));
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
@@ -278,26 +348,12 @@ describe('Admin portal', () => {
     click.mockRestore();
   });
 
-  it('tells the admin what is missing when the ops upload file is not configured in the service', async () => {
-    stubApi([
-      ...BASE_STUBS,
-      { path: '/admin/partners/ops-lead-upload.csv', status: 409, body: { error: { code: 'OPS_UPLOAD_NOT_CONFIGURED' } } },
-    ]);
-    renderPortal('/admin/partners');
-
-    const button = await screen.findByRole('button', { name: new RegExp(CSV_FILES.opsUpload.action) });
-    await waitFor(() => expect(button).toBeEnabled());
-    await userEvent.click(button);
-
-    expect(await screen.findByText(API_ERROR.opsUploadNotConfigured)).toBeInTheDocument();
-  });
-
   it('adds a Singapore number through the admin endpoint', async () => {
     const fetchMock = stubApi([
       ...BASE_STUBS,
       { method: 'PUT', path: `/admin/partners/${MIRA.id}/singapore-phone`, body: { ...MIRA, singaporePhone: '+6591234567', hasSingaporePhone: true } },
     ]);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Add Singapore number for Mira Santos' }));
     await userEvent.type(await screen.findByLabelText('Singapore mobile number'), '+65 9123 4567');
@@ -326,9 +382,9 @@ describe('Admin portal', () => {
         },
       },
     ]);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.VerifiedUpload));
 
-    await uploadCsv(0, 'verified,primary_mobile\ntrue,+65 9000 0012\nFALSE,"+66 9000 0008"\nmaybe,+65 7777 7777\n', 'verified.csv');
+    await uploadCsv(AdminTool.VerifiedUpload, 'verified,primary_mobile\ntrue,+65 9000 0012\nFALSE,"+66 9000 0008"\nmaybe,+65 7777 7777\n', 'verified.csv');
 
     expect(await screen.findByText('1 verified, 1 marked as verification failed, 1 not applied out of 3 rows.')).toBeInTheDocument();
     expect(screen.getByText(IMPORT_OUTCOME_LABEL[ImportRowOutcome.InvalidVerified])).toBeInTheDocument();
@@ -360,9 +416,9 @@ describe('Admin portal', () => {
         },
       },
     ]);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.HubUpload));
 
-    await uploadCsv(1, 'primary_mobile,hub_name\n+65 9000 0012,Jurong West\n+95 9000 0009,Bedok\n', 'hubs.csv');
+    await uploadCsv(AdminTool.HubUpload, 'primary_mobile,hub_name\n+65 9000 0012,Jurong West\n+95 9000 0009,Bedok\n', 'hubs.csv');
 
     expect(await screen.findByText('1 hub updated, 1 not applied out of 2 rows.')).toBeInTheDocument();
     expect(screen.getByText(HUB_OUTCOME_LABEL[HubRowOutcome.NotEligible])).toBeInTheDocument();
@@ -381,12 +437,12 @@ describe('Admin portal', () => {
       ...BASE_STUBS,
       { method: 'POST', path: '/admin/recruiters', status: 201, body: { recruiter: { ...RECRUITERS[0], id: 'r-new', name: 'Sam Tan', email: 'sam@agency.sg', company: 'Agency' }, temporaryPassword: 'Temp-Pass-123' } },
     ]);
-    renderPortal('/admin/recruiters');
+    renderPortal(adminToolPath(AdminTool.CreateRecruiter));
 
     await userEvent.type(await screen.findByLabelText('Name'), 'Sam Tan');
     await userEvent.type(screen.getByLabelText('Organisation'), 'Agency');
     await userEvent.type(screen.getByLabelText('Email'), 'Sam@agency.sg');
-    await userEvent.click(screen.getByRole('button', { name: 'Create approved recruiter' }));
+    await userEvent.click(screen.getByRole('button', { name: CREATE_RECRUITER.submit }));
 
     const dialog = await findDialog(TEMPORARY_PASSWORD.title('Sam Tan'));
     expect(within(dialog).getByText('Temp-Pass-123')).toBeInTheDocument();
@@ -506,7 +562,7 @@ describe('Admin portal', () => {
 
   it('offers no password reset for partners, who sign in with their last name', async () => {
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     expect(await screen.findByText('Mira Santos')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: new RegExp(RESET_PASSWORD.action) })).not.toBeInTheDocument();
@@ -514,7 +570,7 @@ describe('Admin portal', () => {
 
   it('shows which recruiter registered a partner', async () => {
     stubApi([...BASE_STUBS.filter(stub => stub.path !== '/admin/partners'), { path: '/admin/partners', body: [...CANDIDATES, REGISTERED_BY_ALEX] }]);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     const row = (await screen.findByText(REGISTERED_BY_ALEX.name)).closest('tr') as HTMLElement;
     expect(within(row).getByText(`${REGISTERED_BY_LABEL} Alex Morgan · BrightPath Recruitment`)).toBeInTheDocument();
@@ -532,7 +588,7 @@ describe('Admin portal', () => {
         body: { ...REGISTRATION_LOCK, origin: LockOrigin.Admin, recruiterId: RECRUITERS[1].id, lockReleaseAt: new Date().toISOString() },
       },
     ]);
-    renderPortal('/admin/partners');
+    renderPortal('/admin/candidates');
 
     const siti = (await screen.findByText('Siti Rahma')).closest('tr') as HTMLElement;
     const thandar = screen.getByText('Thandar Aung').closest('tr') as HTMLElement;
@@ -658,8 +714,14 @@ describe('Admin portal', () => {
     await userEvent.click(screen.getByRole('button', { name: `Suspend ${OPS_ADMIN.name}` }));
 
     await waitFor(() => expect(requestsTo(fetchMock, 'PUT', `/admin/admins/${OPS_ADMIN.id}/status`)[0]).toEqual({ status: 'suspended' }));
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Finance Admin');
+    await userEvent.type(screen.getByLabelText(ADMIN_ACCOUNTS.searchLabel), 'ops@');
+    await waitFor(() => expect(within(list).queryByText(ADMIN_PROFILE.email)).not.toBeInTheDocument());
+    expect(within(list).getByText(OPS_ADMIN.email)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('link', { name: ADMIN_TOOLS[AdminTool.CreateAdmin].label }));
+    await userEvent.type(await screen.findByLabelText('Name'), 'Finance Admin');
     await userEvent.type(screen.getByLabelText('Email'), 'Finance@Example.com');
     await userEvent.click(screen.getByRole('button', { name: ADMIN_ACCOUNTS.createAction }));
 
@@ -688,9 +750,9 @@ describe('Admin portal', () => {
 
   it('names the valid interview centres and their upload values on the slot upload card', async () => {
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.SlotUpload));
 
-    const card = (await screen.findByText(SLOT_UPLOAD.guide.title)).closest('.ant-card') as HTMLElement;
+    const card = (await screen.findByText(CSV_FILE_CARD.title, { selector: '.ant-card-head-title' })).closest('.ant-card') as HTMLElement;
 
     expect(await within(card).findByText(SLOT_UPLOAD.centreCondition(INTERVIEW_CENTRES[0]))).toBeInTheDocument();
     expect(within(card).getByText(/centre "yangon" is the Yangon Interview Centre: Ye Tagon Tower/)).toBeInTheDocument();
@@ -705,21 +767,31 @@ describe('Admin portal', () => {
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     stubApi(BASE_STUBS);
-    renderPortal('/admin/partners');
+    const sampleButtonOn = async (tool: AdminTool) => {
+      expect(await screen.findByRole('heading', { name: ADMIN_TOOLS[tool].title })).toBeInTheDocument();
+      const card = screen.getByText(CSV_FILE_CARD.title, { selector: '.ant-card-head-title' }).closest('.ant-card') as HTMLElement;
 
-    await screen.findByRole('heading', { name: PARTNERS_PAGE.title });
+      return within(card).queryByRole('button', { name: new RegExp(CSV_FILE_CARD.sampleAction) });
+    };
 
-    const cardOf = (title: string) => screen.getByText(title).closest('.ant-card') as HTMLElement;
-    const sampleButton = (title: string) => within(cardOf(title)).queryByRole('button', { name: new RegExp(CSV_FILE_CARD.sampleAction) });
+    for (const [tool, hasSample] of [
+      [AdminTool.SignedUpDownload, false],
+      [AdminTool.OpsUploadDownload, false],
+      [AdminTool.HubUpload, true],
+    ] as Array<[AdminTool, boolean]>) {
+      const view = renderPortal(adminToolPath(tool));
 
-    expect(sampleButton(CSV_FILES.verified.title)).toBeInTheDocument();
-    expect(sampleButton(CSV_FILES.hubs.title)).toBeInTheDocument();
-    expect(sampleButton(SLOT_UPLOAD.guide.title)).toBeInTheDocument();
-    expect(sampleButton(CSV_FILES.signedUp.title)).not.toBeInTheDocument();
-    expect(sampleButton(CSV_FILES.opsUpload.title)).not.toBeInTheDocument();
+      expect(Boolean(await sampleButtonOn(tool))).toBe(hasSample);
 
-    await userEvent.click(sampleButton(SLOT_UPLOAD.guide.title) as HTMLElement);
-    await userEvent.click(sampleButton(CSV_FILES.verified.title) as HTMLElement);
+      view.unmount();
+    }
+
+    const slots = renderPortal(adminToolPath(AdminTool.SlotUpload));
+    await userEvent.click((await sampleButtonOn(AdminTool.SlotUpload)) as HTMLElement);
+    slots.unmount();
+
+    renderPortal(adminToolPath(AdminTool.VerifiedUpload));
+    await userEvent.click((await sampleButtonOn(AdminTool.VerifiedUpload)) as HTMLElement);
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     expect(await createObjectURL.mock.calls[0][0].text()).toBe(
@@ -747,9 +819,9 @@ describe('Admin portal', () => {
         },
       },
     ]);
-    renderPortal('/admin/partners');
+    renderPortal(adminToolPath(AdminTool.SlotUpload));
 
-    const card = (await screen.findByText(SLOT_UPLOAD.guide.title)).closest('.ant-card') as HTMLElement;
+    const card = (await screen.findByText(CSV_FILE_CARD.title, { selector: '.ant-card-head-title' })).closest('.ant-card') as HTMLElement;
     await userEvent.upload(
       card.querySelector('input[type="file"]') as HTMLInputElement,
       new File(['centre,start_time,end_time,capacity\nsingapore,09:00,10:00,6\nyangon,10:00,11:30,5\nTampines,11:00,12:00,4\n'], 'slots.csv', { type: 'text/csv' }),
@@ -791,5 +863,115 @@ describe('Admin portal', () => {
     const released = screen.getByText('Released profiles').closest('.ant-card') as HTMLElement;
     expect(await within(released).findByText('Siti Rahma')).toBeInTheDocument();
     expect(within(released).getByText('Release time passed')).toBeInTheDocument();
+  });
+
+  it('searches locks and placements by candidate, recruiter, organisation or aggregator across both lists', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/admin/placements');
+
+    const locks = (await screen.findByText(PLACEMENTS_PAGE.locksTitle)).closest('.ant-card') as HTMLElement;
+    const released = screen.getByText(PLACEMENTS_PAGE.releasedTitle).closest('.ant-card') as HTMLElement;
+    await within(locks).findByText('Thandar Aung');
+    const search = screen.getByLabelText(PLACEMENTS_PAGE.searchLabel);
+
+    await userEvent.type(search, 'homecare');
+    await waitFor(() => expect(within(locks).queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(within(locks).getByText('Ana Reyes')).toBeInTheDocument();
+    expect(within(released).getByText(PLACEMENTS_PAGE.searchEmpty)).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'horizon');
+    await waitFor(() => expect(within(locks).queryByText('Ana Reyes')).not.toBeInTheDocument());
+    expect(within(locks).getByText('Siti Rahma')).toBeInTheDocument();
+    expect(within(released).getByText('Siti Rahma')).toBeInTheDocument();
+  });
+
+  it('searches the profile access log on the recruiter access page', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/admin/recruiters');
+
+    const log = (await screen.findByText(ACCESS_LOG.title)).closest('.ant-card') as HTMLElement;
+    await within(log).findByText('Thandar Aung');
+
+    await userEvent.type(screen.getByLabelText(ACCESS_LOG.searchLabel), 'siti');
+
+    await waitFor(() => expect(within(log).queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(within(log).getByText('Siti Rahma')).toBeInTheDocument();
+  });
+
+  it('filters candidates by Singapore number and by recruiter, and sends the Singapore-number filter with the downloads', async () => {
+    const fetchMock = stubApi([...BASE_STUBS, { path: '/admin/partners/export.csv', text: 'name,location,primary_mobile' }]);
+    const createObjectURL = vi.fn((_file: Blob) => 'blob:signed-up');
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const view = renderPortal('/admin/candidates');
+
+    await screen.findByText('Lin Lin Htet');
+    fireEvent.mouseDown(screen.getByLabelText('Filter by Singapore number'));
+    fireEvent.click(await screen.findByTitle(SINGAPORE_PHONE_FILTER_OPTIONS[1].label));
+
+    await waitFor(() => expect(screen.queryByText('Lin Lin Htet')).not.toBeInTheDocument());
+    CANDIDATES.filter(candidate => !candidate.hasSingaporePhone).forEach(candidate => expect(screen.getByText(candidate.name)).toBeInTheDocument());
+
+    fireEvent.mouseDown(screen.getByLabelText('Filter by Singapore number'));
+    fireEvent.click(await screen.findByTitle(SINGAPORE_PHONE_FILTER_OPTIONS[0].label));
+    fireEvent.mouseDown(screen.getByLabelText(LIST_FILTER.recruiterLabel));
+    fireEvent.click(await screen.findByTitle('Jamie Lee · Horizon Recruitment'));
+
+    await waitFor(() => expect(screen.queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(screen.getByText('Siti Rahma')).toBeInTheDocument();
+    view.unmount();
+
+    renderPortal(adminToolPath(AdminTool.SignedUpDownload));
+    await screen.findByText(DOWNLOAD_PAGE.summary(CANDIDATES.length, CANDIDATES.length, false));
+    fireEvent.mouseDown(screen.getByLabelText('Filter by Singapore number'));
+    fireEvent.click(await screen.findByTitle(SINGAPORE_PHONE_FILTER_OPTIONS[0].label));
+    const withPhone = CANDIDATES.filter(candidate => candidate.hasSingaporePhone).length;
+    expect(await screen.findByText(DOWNLOAD_PAGE.summary(withPhone, withPhone, false))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(CSV_FILES.signedUp.action) }));
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    const requested = fetchMock.mock.calls.map(([input]) => String(input)).filter(url => url.includes('export.csv'));
+    expect(requested[0].endsWith('/admin/partners/export.csv?hasSingaporePhone=true')).toBe(true);
+
+    click.mockRestore();
+  }, 20000);
+
+  it('filters locks and placements by recruiter and by how the lock was made', async () => {
+    stubApi(BASE_STUBS);
+    renderPortal('/admin/placements');
+
+    const locks = (await screen.findByText(PLACEMENTS_PAGE.locksTitle)).closest('.ant-card') as HTMLElement;
+    await within(locks).findByText('Thandar Aung');
+
+    fireEvent.mouseDown(screen.getByLabelText(LIST_FILTER.originLabel));
+    fireEvent.click(await screen.findByTitle(LOCK_ORIGIN_LABEL[LockOrigin.Admin]));
+    await waitFor(() => expect(within(locks).queryByText('Thandar Aung')).not.toBeInTheDocument());
+    expect(within(locks).getByText('Ana Reyes')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText(LIST_FILTER.recruiterLabel));
+    fireEvent.click(await screen.findByTitle('Jamie Lee · Horizon Recruitment'));
+    expect(await within(locks).findByText(PLACEMENTS_PAGE.searchEmpty)).toBeInTheDocument();
+  });
+
+  it('filters recruiters by account status and admins by role', async () => {
+    stubApi(BASE_STUBS);
+    const view = renderPortal('/admin/recruiters');
+
+    const table = (await screen.findByLabelText(RECRUITER_SEARCH.label)).closest('.ant-card') as HTMLElement;
+    await within(table).findByText('Alex Morgan');
+    fireEvent.mouseDown(screen.getByLabelText(LIST_FILTER.recruiterStatusLabel));
+    fireEvent.click(await screen.findByTitle(RECRUITER_STATUS_TAG[RecruiterStatus.Suspended].label));
+    expect(await within(table).findByText(RECRUITER_SEARCH.empty)).toBeInTheDocument();
+    view.unmount();
+
+    renderPortal('/admin/admins');
+    const list = (await screen.findByText(ADMIN_ACCOUNTS.listTitle)).closest('.ant-card') as HTMLElement;
+    await within(list).findByText(ADMIN_PROFILE.email);
+    fireEvent.mouseDown(screen.getByLabelText(LIST_FILTER.adminRoleLabel));
+    fireEvent.click(await screen.findByTitle(ADMIN_ROLE_LABEL[AdminRole.Admin]));
+
+    await waitFor(() => expect(within(list).queryByText(ADMIN_PROFILE.email)).not.toBeInTheDocument());
+    expect(within(list).getByText(OPS_ADMIN.email)).toBeInTheDocument();
   });
 });

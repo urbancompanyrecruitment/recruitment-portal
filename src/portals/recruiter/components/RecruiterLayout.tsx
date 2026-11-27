@@ -3,12 +3,12 @@ import { useSessionUser } from '@/shared/auth/session';
 import { ChangePassword } from '@/shared/components/ChangePassword';
 import { PortalShell } from '@/shared/components/PortalShell';
 import { RECRUITER_NAV_ITEMS, RECRUITER_WORKSPACE } from '../constant';
-import { PendingApprovalPage } from '../pages/PendingApprovalPage';
+import { AccountStatusPage } from '../pages/AccountStatusPage';
 
 export const RecruiterLayout = () => {
   const recruiter = useSessionUser(UserRole.Recruiter);
 
-  if (!recruiter.approved) return <PendingApprovalPage />;
+  if (!recruiter.approved) return <AccountStatusPage />;
 
   return (
     <PortalShell

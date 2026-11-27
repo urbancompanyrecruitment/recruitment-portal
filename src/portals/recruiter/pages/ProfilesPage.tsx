@@ -1,10 +1,13 @@
 import { SearchOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Empty, Flex, Input, Row, Select, Skeleton, Tag, Typography } from 'antd';
+import { Button, Card, Col, Empty, Flex, Input, Pagination, Row, Select, Skeleton, Tag, Typography } from 'antd';
 import { useState } from 'react';
-import { COOKING_FREQUENCY_LABEL } from '@/domain/constant';
+import { COOKING_FREQUENCY_LABEL, YES_NO_FILTER_OPTIONS } from '@/domain/constant';
+import { matchesYesNo } from '@/domain/filter';
 import { formatLocation } from '@/domain/format';
-import { CandidateAvatar, Notice, PageHeader, VerificationTag } from '@/shared/components/ui';
-import { DEFAULT_PROFILE_FILTERS, PROFILE_SORT_OPTIONS, PROFILE_SORTERS } from '../constant';
+import { CARD_PAGE_SIZE } from '@/shared/components/constant';
+import { CandidateAvatar, FilterSelect, Notice, PageHeader, VerificationTag } from '@/shared/components/ui';
+import { matchesSearch } from '@/shared/utils/search';
+import { DEFAULT_PROFILE_FILTERS, PROFILE_FILTER, PROFILE_SORT_OPTIONS, PROFILE_SORTERS } from '../constant';
 import { useAvailableCandidates, useOpenProfile } from '../hooks';
 import { ProfileFilters } from '../interface';
 
@@ -12,23 +15,33 @@ export const ProfilesPage = () => {
   const { data = [], isLoading } = useAvailableCandidates();
   const { openProfile, openingId } = useOpenProfile();
   const [filters, setFilters] = useState<ProfileFilters>(DEFAULT_PROFILE_FILTERS);
+  const [page, setPage] = useState(1);
 
-  const search = filters.search.trim().toLowerCase();
   const countryOptions = [...new Set(data.map(candidate => candidate.country))]
     .toSorted()
     .map(country => ({ value: country, label: country }));
+  const nationalityOptions = [...new Set(data.map(candidate => candidate.nationality))]
+    .toSorted()
+    .map(nationality => ({ value: nationality, label: nationality }));
   const visible = data
-    .filter(
-      candidate =>
-        !search || `${candidate.name} ${candidate.nationality} ${candidate.city}`.toLowerCase().includes(search),
-    )
+    .filter(candidate => matchesSearch(filters.search, [candidate.name, candidate.nationality, candidate.city]))
     .filter(candidate => !filters.country || candidate.country === filters.country)
+    .filter(candidate => !filters.nationality || candidate.nationality === filters.nationality)
+    .filter(candidate => matchesYesNo(filters.deepCleaning, candidate.deepCleaningExperience))
+    .filter(candidate => matchesYesNo(filters.comfortableWithDogs, candidate.comfortableWithDogs))
+    .filter(candidate => matchesYesNo(filters.singaporePhone, candidate.hasSingaporePhone))
     .toSorted(PROFILE_SORTERS[filters.sort]);
-  const updateFilters = (change: Partial<ProfileFilters>) => setFilters(current => ({ ...current, ...change }));
+  const pageCount = Math.max(1, Math.ceil(visible.length / CARD_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = visible.slice((currentPage - 1) * CARD_PAGE_SIZE, currentPage * CARD_PAGE_SIZE);
+  const updateFilters = (change: Partial<ProfileFilters>) => {
+    setFilters(current => ({ ...current, ...change }));
+    setPage(1);
+  };
 
   return (
     <>
-      <PageHeader title="Available profiles" subtitle="Professionals confirmed UC Verified after the assessment." />
+      <PageHeader title="Available profiles" subtitle="Candidates confirmed verified after the assessment." />
       <Notice>
         <strong>Opening a profile reveals the phone numbers and locks it for you.</strong>{' '}
         It immediately disappears from other recruiters&apos; available lists.
@@ -66,56 +79,98 @@ export const ProfilesPage = () => {
             />
           </Col>
         </Row>
+        <Flex gap={12} wrap style={{ marginTop: 12 }}>
+          <FilterSelect
+            label={PROFILE_FILTER.nationalityLabel}
+            placeholder={PROFILE_FILTER.nationalityPlaceholder}
+            value={filters.nationality}
+            options={nationalityOptions}
+            onChange={nationality => updateFilters({ nationality })}
+          />
+          <FilterSelect
+            label={PROFILE_FILTER.deepCleaningLabel}
+            placeholder={PROFILE_FILTER.deepCleaningPlaceholder}
+            value={filters.deepCleaning}
+            options={YES_NO_FILTER_OPTIONS}
+            onChange={deepCleaning => updateFilters({ deepCleaning })}
+          />
+          <FilterSelect
+            label={PROFILE_FILTER.dogsLabel}
+            placeholder={PROFILE_FILTER.dogsPlaceholder}
+            value={filters.comfortableWithDogs}
+            options={YES_NO_FILTER_OPTIONS}
+            onChange={comfortableWithDogs => updateFilters({ comfortableWithDogs })}
+          />
+          <FilterSelect
+            label={PROFILE_FILTER.singaporePhoneLabel}
+            placeholder={PROFILE_FILTER.singaporePhonePlaceholder}
+            value={filters.singaporePhone}
+            options={YES_NO_FILTER_OPTIONS}
+            onChange={singaporePhone => updateFilters({ singaporePhone })}
+          />
+        </Flex>
       </Card>
       <Skeleton active loading={isLoading}>
         <Typography.Paragraph type="secondary">{visible.length} available professionals</Typography.Paragraph>
         {visible.length ? (
-          <Row gutter={[18, 18]}>
-            {visible.map(candidate => (
-              <Col key={candidate.id} xs={24} md={12} lg={8}>
-                <Card className="recruiter-profile-card">
-                  <Flex justify="space-between" align="flex-start" gap={8}>
-                    <CandidateAvatar name={candidate.name} size={48} />
-                    <VerificationTag verified={candidate.verified} />
-                  </Flex>
-                  <Typography.Title level={4} style={{ margin: '14px 0 2px' }}>
-                    {candidate.name}
-                  </Typography.Title>
-                  <div className="muted small">
-                    {formatLocation(candidate)} · {candidate.nationality} · {candidate.age} years
-                  </div>
-                  <Flex gap={6} wrap className="recruiter-profile-bio">
-                    {candidate.deepCleaningExperience && <Tag>Deep cleaning</Tag>}
-                    {candidate.comfortableWithDogs && <Tag>Comfortable with dogs</Tag>}
-                    {candidate.hasSingaporePhone && <Tag color="blue">Singapore number</Tag>}
-                  </Flex>
-                  <Flex gap={24} className="recruiter-facts">
-                    <div>
-                      <div className="recruiter-fact-label">Cooking</div>
-                      <div className="recruiter-fact-value">{COOKING_FREQUENCY_LABEL[candidate.cookingFrequency]}</div>
+          <>
+            <Row gutter={[18, 18]}>
+              {pageItems.map(candidate => (
+                <Col key={candidate.id} xs={24} md={12} lg={8}>
+                  <Card className="recruiter-profile-card">
+                    <Flex justify="space-between" align="flex-start" gap={8}>
+                      <CandidateAvatar name={candidate.name} size={48} />
+                      <VerificationTag verified={candidate.verified} />
+                    </Flex>
+                    <Typography.Title level={4} style={{ margin: '14px 0 2px' }}>
+                      {candidate.name}
+                    </Typography.Title>
+                    <div className="muted small">
+                      {formatLocation(candidate)} · {candidate.nationality} · {candidate.age} years
                     </div>
-                    <div>
-                      <div className="recruiter-fact-label">Nationality</div>
-                      <div className="recruiter-fact-value">{candidate.nationality}</div>
-                    </div>
-                  </Flex>
-                  <Button
-                    type="primary"
-                    block
-                    loading={openingId === candidate.id}
-                    disabled={Boolean(openingId) && openingId !== candidate.id}
-                    onClick={() => openProfile(candidate.id)}
-                  >
-                    Open profile →
-                  </Button>
-                </Card>
-              </Col>
-            ))}
-          </Row>
+                    <Flex gap={6} wrap className="recruiter-profile-bio">
+                      {candidate.deepCleaningExperience && <Tag>Deep cleaning</Tag>}
+                      {candidate.comfortableWithDogs && <Tag>Comfortable with dogs</Tag>}
+                      {candidate.hasSingaporePhone && <Tag color="blue">Singapore number</Tag>}
+                    </Flex>
+                    <Flex gap={24} className="recruiter-facts">
+                      <div>
+                        <div className="recruiter-fact-label">Cooking</div>
+                        <div className="recruiter-fact-value">{COOKING_FREQUENCY_LABEL[candidate.cookingFrequency]}</div>
+                      </div>
+                      <div>
+                        <div className="recruiter-fact-label">Nationality</div>
+                        <div className="recruiter-fact-value">{candidate.nationality}</div>
+                      </div>
+                    </Flex>
+                    <Button
+                      type="primary"
+                      block
+                      loading={openingId === candidate.id}
+                      disabled={Boolean(openingId) && openingId !== candidate.id}
+                      onClick={() => openProfile(candidate.id)}
+                    >
+                      Open profile →
+                    </Button>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+            <Pagination
+              align="center"
+              style={{ marginTop: 24 }}
+              current={currentPage}
+              pageSize={CARD_PAGE_SIZE}
+              total={visible.length}
+              hideOnSinglePage
+              showSizeChanger={false}
+              onChange={setPage}
+            />
+          </>
         ) : (
           <Card>
             <Empty description="No professionals match these filters.">
-              <Button onClick={() => setFilters(DEFAULT_PROFILE_FILTERS)}>Clear filters</Button>
+              <Button onClick={() => updateFilters(DEFAULT_PROFILE_FILTERS)}>Clear filters</Button>
             </Empty>
           </Card>
         )}

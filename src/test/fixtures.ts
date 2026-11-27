@@ -33,8 +33,8 @@ const ahead = (hours: number) => new Date(Date.now() + hours * HOUR_MS).toISOStr
 const SINGAPORE_CITY = { country: 'Singapore', timeZone: 'Asia/Singapore', instructions: 'Arrive 15 minutes early.' };
 
 export const SINGAPORE_CITIES: InterviewCity[] = [
-  { ...SINGAPORE_CITY, key: 'tampines', name: 'Tampines', centre: 'UC Tampines Centre', address: 'Tampines Central' },
-  { ...SINGAPORE_CITY, key: 'jurong-east', name: 'Jurong East', centre: 'UC Jurong East Centre', address: 'Jurong Gateway Road' },
+  { ...SINGAPORE_CITY, key: 'tampines', name: 'Tampines', centre: 'Tampines Centre', address: 'Tampines Central' },
+  { ...SINGAPORE_CITY, key: 'jurong-east', name: 'Jurong East', centre: 'Jurong East Centre', address: 'Jurong Gateway Road' },
 ];
 
 export const MYANMAR_CITIES: InterviewCity[] = [
@@ -43,7 +43,7 @@ export const MYANMAR_CITIES: InterviewCity[] = [
     name: 'Yangon',
     country: 'Myanmar',
     timeZone: 'Asia/Yangon',
-    centre: 'UC Yangon Centre',
+    centre: 'Yangon Centre',
     address: 'Downtown Yangon',
     instructions: 'Arrive 15 minutes early.',
   },

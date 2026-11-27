@@ -1,35 +1,37 @@
-import { Button, Card, Col, Flex, Form, Input, Popconfirm, Row, Select, Table, TableColumnsType, Tag, Typography } from 'antd';
+import { Button, Card, Flex, Popconfirm, Table, TableColumnsType, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAdminAccounts } from '@/api/hooks';
-import { AdminInput } from '@/api/interface';
-import { createAdmin, resetAdminPassword, setAdminStatus } from '@/api/people';
+import { resetAdminPassword, setAdminStatus } from '@/api/people';
 import { ADMIN_ROLE_LABEL, ADMIN_ROLE_OPTIONS } from '@/domain/constant';
 import { formatDateTime } from '@/domain/format';
 import { AdminAccount, AdminRole, UserRole } from '@/domain/interface';
 import { useSessionUser } from '@/shared/auth/session';
-import { Notice, PageHeader } from '@/shared/components/ui';
+import { TABLE_PAGINATION, TABLE_SCROLL } from '@/shared/components/constant';
+import { FilterSelect, PageHeader, SearchBox } from '@/shared/components/ui';
 import { useAppMutation } from '@/shared/hooks/useAppMutation';
+import { matchesSearch } from '@/shared/utils/search';
 import { TemporaryPasswordModal } from '../components/TemporaryPasswordModal';
 import {
   ADMIN_ACCOUNTS,
   ADMIN_HOME_PATH,
   ADMIN_MESSAGE,
   ADMIN_STATUS_ACTION,
+  ADMIN_STATUS_FILTER_OPTIONS,
   ADMIN_STATUS_TAG,
-  NEVER_SIGNED_IN,
+  LAST_SIGN_IN,
+  LIST_FILTER,
   RESET_PASSWORD,
-  TABLE_PAGE_SIZE,
 } from '../constant';
-import { AdminStatusVariables, TemporaryPasswordNotice } from '../interface';
+import { AdminStatusVariables, AdminTableFilters, TemporaryPasswordNotice } from '../interface';
 
 export const AdminsPage = () => {
-  const [form] = Form.useForm<AdminInput>();
   const [notice, setNotice] = useState<TemporaryPasswordNotice>();
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<AdminTableFilters>({});
   const current = useSessionUser(UserRole.Admin);
   const isSuperAdmin = current.adminRole === AdminRole.SuperAdmin;
   const { data: admins = [], isLoading } = useAdminAccounts(isSuperAdmin);
-  const addAdmin = useAppMutation(createAdmin, ADMIN_MESSAGE.adminCreated);
   const changeStatus = useAppMutation(
     ({ admin, status }: AdminStatusVariables) => setAdminStatus(admin.id, status),
     ADMIN_MESSAGE.adminAccessUpdated,
@@ -37,6 +39,10 @@ export const AdminsPage = () => {
   const resetPassword = useAppMutation((admin: AdminAccount) => resetAdminPassword(admin.id), ADMIN_MESSAGE.passwordReset);
 
   if (!isSuperAdmin) return <Navigate to={ADMIN_HOME_PATH} replace />;
+
+  const visibleAdmins = admins
+    .filter(admin => (!filters.role || admin.role === filters.role) && (!filters.status || admin.status === filters.status))
+    .filter(admin => matchesSearch(search, [admin.name, admin.email, ADMIN_ROLE_LABEL[admin.role]]));
 
   const columns: TableColumnsType<AdminAccount> = [
     {
@@ -59,7 +65,7 @@ export const AdminsPage = () => {
     {
       title: 'Last sign-in',
       key: 'lastLoginAt',
-      render: (_, admin) => (admin.lastLoginAt ? formatDateTime(admin.lastLoginAt) : NEVER_SIGNED_IN),
+      render: (_, admin) => (admin.lastLoginAt ? formatDateTime(admin.lastLoginAt) : LAST_SIGN_IN.never),
     },
     {
       title: '',
@@ -111,57 +117,37 @@ export const AdminsPage = () => {
     <>
       <PageHeader title={ADMIN_ACCOUNTS.title} subtitle={ADMIN_ACCOUNTS.subtitle} />
       <Flex vertical gap={18}>
-        <Card title={ADMIN_ACCOUNTS.createTitle}>
-          <Form
-            form={form}
-            layout="vertical"
-            requiredMark={false}
-            initialValues={{ role: AdminRole.Admin }}
-            onFinish={({ name, email, role }) =>
-              addAdmin.mutate(
-                { name: name.trim(), email: email.trim().toLowerCase(), role },
-                {
-                  onSuccess: created => {
-                    form.resetFields();
-                    setNotice({ name: created.admin.name, account: created.admin.email, password: created.temporaryPassword });
-                  },
-                },
-              )
-            }
-          >
-            <Row gutter={18}>
-              <Col xs={24} md={8}>
-                <Form.Item name="name" label="Name" rules={[{ required: true, whitespace: true }]}>
-                  <Input placeholder="Full name" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Enter a valid email' }]}>
-                  <Input inputMode="email" placeholder="name@urbancompany.com" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-                  <Select options={ADMIN_ROLE_OPTIONS} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Notice>{ADMIN_ACCOUNTS.createNote}</Notice>
-            <Button type="primary" htmlType="submit" loading={addAdmin.isPending}>
-              {ADMIN_ACCOUNTS.createAction}
-            </Button>
-          </Form>
-        </Card>
-
-        <Card title={ADMIN_ACCOUNTS.listTitle} styles={{ body: { padding: 0 } }}>
+        <Card
+          title={ADMIN_ACCOUNTS.listTitle}
+          styles={{ body: { padding: 0 } }}
+          extra={
+            <Flex gap={12} wrap>
+              <FilterSelect
+                label={LIST_FILTER.adminRoleLabel}
+                placeholder={LIST_FILTER.adminRolePlaceholder}
+                value={filters.role}
+                options={ADMIN_ROLE_OPTIONS}
+                onChange={role => setFilters(current => ({ ...current, role }))}
+              />
+              <FilterSelect
+                label={LIST_FILTER.adminStatusLabel}
+                placeholder={LIST_FILTER.adminStatusPlaceholder}
+                value={filters.status}
+                options={ADMIN_STATUS_FILTER_OPTIONS}
+                onChange={status => setFilters(current => ({ ...current, status }))}
+              />
+              <SearchBox value={search} onChange={setSearch} placeholder={ADMIN_ACCOUNTS.searchPlaceholder} label={ADMIN_ACCOUNTS.searchLabel} />
+            </Flex>
+          }
+        >
           <Table
             rowKey="id"
             columns={columns}
-            dataSource={admins}
+            dataSource={visibleAdmins}
             loading={isLoading}
-            pagination={{ pageSize: TABLE_PAGE_SIZE, hideOnSinglePage: true }}
-            scroll={{ x: 'max-content' }}
-            locale={{ emptyText: ADMIN_ACCOUNTS.none }}
+            pagination={TABLE_PAGINATION}
+            scroll={TABLE_SCROLL}
+            locale={{ emptyText: search.trim() || filters.role || filters.status ? ADMIN_ACCOUNTS.searchEmpty : ADMIN_ACCOUNTS.none }}
           />
         </Card>
       </Flex>

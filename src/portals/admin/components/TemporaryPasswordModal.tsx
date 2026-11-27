@@ -16,6 +16,7 @@ export const TemporaryPasswordModal = ({ notice, onClose }: TemporaryPasswordMod
   >
     <Descriptions
       column={1}
+      colon={false}
       size="small"
       items={[
         ...(notice?.account ? [{ key: 'account', label: TEMPORARY_PASSWORD.accountLabel, children: notice.account }] : []),

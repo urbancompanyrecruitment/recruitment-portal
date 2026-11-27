@@ -84,7 +84,7 @@ export const CandidateProfilePage = () => {
       <PageHeader
         back={{ to: RECRUITER_PATH.myCandidates, label: 'Back to my candidates' }}
         title={candidate.name}
-        subtitle="Contact the partner, then save the aggregator and start date."
+        subtitle="Contact the candidate, then save the aggregator and start date."
       />
       {isPlaced && (
         <Notice tone="success">
@@ -144,6 +144,7 @@ export const CandidateProfilePage = () => {
             </div>
             <Descriptions
               column={1}
+              colon={false}
               size="small"
               items={[
                 { key: 'singapore', label: 'Singapore mobile', children: candidate.singaporePhone ?? 'Not shared yet' },
@@ -155,7 +156,7 @@ export const CandidateProfilePage = () => {
               ]}
             />
             <div className="recruiter-fact-label" style={{ marginTop: 14 }}>
-              UC verification
+              Verification
             </div>
             <div className="small" style={{ marginTop: 8 }}>
               {candidate.verifiedAt ? `Verified on ${formatDate(candidate.verifiedAt)}` : 'Not verified'}
@@ -168,6 +169,7 @@ export const CandidateProfilePage = () => {
               <>
                 <Descriptions
                   column={1}
+                  colon={false}
                   size="small"
                   items={[
                     { key: 'aggregator', label: PLACEMENT_FORM.aggregatorLabel, children: reservation.employerName },
@@ -192,7 +194,7 @@ export const CandidateProfilePage = () => {
                   <Form.Item
                     name="startDate"
                     label="Planned joining / start date"
-                    extra="Confirm this date with the partner before saving."
+                    extra="Confirm this date with the candidate before saving."
                     rules={[{ required: true, message: 'Select the planned start date' }]}
                   >
                     <DatePicker
@@ -225,7 +227,7 @@ export const CandidateProfilePage = () => {
                 </Form>
                 {reservation.lockReleaseAt !== undefined && (
                   <Typography.Paragraph type="secondary" className="small" style={{ margin: '24px 0 0' }}>
-                    Opening or contacting the partner alone does not stop expiry. Save the placement before the deadline.
+                    Opening or contacting the candidate alone does not stop expiry. Save the placement before the deadline.
                   </Typography.Paragraph>
                 )}
               </>

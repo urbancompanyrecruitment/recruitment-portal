@@ -9,6 +9,7 @@ import { toIsoDate } from '@/domain/format';
 import { buildChannelFunnel } from '@/domain/funnel';
 import { ChannelFunnelRow } from '@/domain/interface';
 import { findCity } from '@/domain/slot';
+import { TABLE_SCROLL } from '@/shared/components/constant';
 import { Notice, PageHeader, StatTile } from '@/shared/components/ui';
 import { PartnerFilters } from '../components/PartnerFilters';
 import {
@@ -47,7 +48,7 @@ export const OverviewPage = () => {
     { title: 'Channel', key: 'source', render: (_, row) => SOURCE_LABEL[row.source] },
     { title: 'Signups', dataIndex: 'signups', key: 'signups' },
     { title: 'Singapore number', dataIndex: 'withSingaporePhone', key: 'withSingaporePhone' },
-    { title: 'UC Verified', dataIndex: 'verified', key: 'verified' },
+    { title: 'Verified', dataIndex: 'verified', key: 'verified' },
     { title: 'Placed', dataIndex: 'placed', key: 'placed' },
     { title: 'Conversion %', key: 'conversion', render: (_, row) => `${row.conversion}%` },
   ];
@@ -136,14 +137,14 @@ export const OverviewPage = () => {
             </Flex>
           }
         >
-          <Notice>Signup cohort for the selected week; conversion = UC Verified / signups.</Notice>
+          <Notice>Signup cohort for the selected week; conversion = verified / signups.</Notice>
           <Table
             rowKey="source"
             columns={channelColumns}
             dataSource={channelFunnel}
             loading={isLoading}
             pagination={false}
-            scroll={{ x: 'max-content' }}
+            scroll={TABLE_SCROLL}
             locale={{ emptyText: 'No signups in this week.' }}
           />
         </Card>
@@ -156,7 +157,7 @@ export const OverviewPage = () => {
             dataSource={upcomingDays}
             loading={slotsLoading}
             pagination={false}
-            scroll={{ x: 'max-content' }}
+            scroll={TABLE_SCROLL}
             locale={{ emptyText: 'No upcoming slots.' }}
           />
         </Card>

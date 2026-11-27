@@ -9,7 +9,7 @@ export const RecruiterHero = () => (
     <span className="eyebrow">Approved recruiter access</span>
     <h1 className="recruiter-hero-title">The right people. The next opportunity.</h1>
     <Typography.Paragraph className="recruiter-hero-text">
-      Discover UC-verified professionals and guide their next step, from first conversation to placement.
+      Discover verified professionals and guide their next step, from first conversation to placement.
     </Typography.Paragraph>
     <div className="recruiter-hero-card">
       <Flex justify="space-between" align="center" gap={12}>

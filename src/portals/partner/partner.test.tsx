@@ -63,7 +63,7 @@ const SIGNED_IN_STUBS: ApiStub[] = [
 const renderPartner = (route = PARTNER_ROUTE.registration, sessions: Sessions = {}) =>
   renderWithProviders(
     <Routes>
-      <Route path="/partner/*" element={<PartnerPortal />} />
+      <Route path="/candidate/*" element={<PartnerPortal />} />
     </Routes>,
     { route, sessions },
   );
@@ -185,7 +185,7 @@ describe('partner portal', () => {
     await chooseOption('Interview city', 'Tampines, Singapore');
     await chooseFirstSlot();
 
-    expect(await screen.findByText('UC Tampines Centre', { selector: 'h4' })).toBeInTheDocument();
+    expect(await screen.findByText('Tampines Centre', { selector: 'h4' })).toBeInTheDocument();
     expect(screen.getByText(/Tampines Central/)).toBeInTheDocument();
     expect(screen.getByText(/3 seats left/)).toBeInTheDocument();
   });
@@ -202,7 +202,7 @@ describe('partner portal', () => {
     expect(screen.queryByText(/legal approval/i)).not.toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText('Primary mobile number'), '91234567');
-    await userEvent.type(screen.getByLabelText('Singapore mobile number (optional)'), '+65 1234');
+    await userEvent.type(screen.getByLabelText('Singapore mobile number'), '+65 1234');
     await userEvent.click(screen.getByRole('button', { name: SUBMIT_REGISTRATION }));
 
     expect(await screen.findByText(PRIMARY_PHONE_ERROR)).toBeInTheDocument();
@@ -224,13 +224,13 @@ describe('partner portal', () => {
     expect(screen.queryByText(COPY.copyPrimaryLabel)).not.toBeInTheDocument();
     await fillDetails('+65 9876 5432');
     await userEvent.click(screen.getByRole('checkbox', { name: COPY.copyPrimaryLabel }));
-    expect(screen.getByLabelText('Singapore mobile number (optional)')).toHaveValue('+65 9876 5432');
+    expect(screen.getByLabelText('Singapore mobile number')).toHaveValue('+65 9876 5432');
 
     await userEvent.click(screen.getByRole('button', { name: SUBMIT_REGISTRATION }));
 
     expect(await screen.findByText(THANK_YOU.title)).toBeInTheDocument();
-    expect(screen.getByText(THANK_YOU.onboardingNote)).toBeInTheDocument();
-    expect(screen.getByText('UC Tampines Centre, Tampines')).toBeInTheDocument();
+    expect(screen.queryByText(/onboarding/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Tampines Centre, Tampines')).toBeInTheDocument();
 
     const [body] = requestsTo(fetchMock, 'POST', '/partner/sign-up');
     expect(body).toMatchObject({
@@ -259,7 +259,7 @@ describe('partner portal', () => {
 
     expect(await screen.findByText(PARTNER_STATUS.title)).toBeInTheDocument();
     expect(screen.getAllByText('Test Partner')).toHaveLength(2);
-    expect(screen.getByText('UC Tampines Centre, Tampines')).toBeInTheDocument();
+    expect(screen.getByText('Tampines Centre, Tampines')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: CHANGE_PASSWORD.button })).not.toBeInTheDocument();
 
     const [loginBody] = requestsTo(fetchMock, 'POST', '/partner/auth/login');
@@ -459,9 +459,9 @@ describe('partner portal', () => {
     expect(screen.queryByRole('button', { name: PARTNER_NOTIFICATIONS.label })).not.toBeInTheDocument();
   });
 
-  it('sends unknown partner paths to the partner dashboard', () => {
+  it('sends unknown candidate paths to the candidate dashboard', () => {
     stubApi(BASE_STUBS);
-    renderPartner('/partner/unknown');
+    renderPartner('/candidate/unknown');
 
     expect(screen.getByText(PARTNER_HOME.title)).toBeInTheDocument();
   });

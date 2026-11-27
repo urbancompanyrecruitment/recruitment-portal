@@ -1,7 +1,7 @@
 import { AdminAccount, Candidate, Recruiter, SessionUser, UserRole } from '@/domain/interface';
 import { API_PATH, SIGNED_OUT_STATUSES } from './constant';
 import { HttpError, request } from './http';
-import { ChangePasswordInput, RecruiterSignUpInput } from './interface';
+import { ChangePasswordInput, RecruiterSignUpInput, ResetPasswordInput } from './interface';
 
 const partnerSession = (partner: Candidate): SessionUser => ({
   id: partner.id,
@@ -17,6 +17,7 @@ const recruiterSession = (recruiter: Recruiter): SessionUser => ({
   role: UserRole.Recruiter,
   subtitle: `${recruiter.company} · ${recruiter.email}`,
   approved: recruiter.active,
+  recruiterStatus: recruiter.status,
 });
 
 const adminSession = (admin: AdminAccount): SessionUser => ({
@@ -58,3 +59,9 @@ export const changePassword = (role: UserRole, input: ChangePasswordInput): Prom
   request<void>(API_PATH.changePassword(role), { method: 'POST', body: input });
 
 export const signOutRole = (role: UserRole): Promise<void> => request<void>(API_PATH.logout(role), { method: 'POST' });
+
+export const requestPasswordReset = (role: UserRole, email: string): Promise<void> =>
+  request<void>(API_PATH.forgotPassword(role), { method: 'POST', body: { email } });
+
+export const resetPassword = (role: UserRole, input: ResetPasswordInput): Promise<void> =>
+  request<void>(API_PATH.resetPassword(role), { method: 'POST', body: input });

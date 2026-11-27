@@ -8,13 +8,14 @@ import {
   RecruitmentSource,
   SlotRowOutcome,
   TagStyle,
+  YesNoFilter,
 } from './interface';
 
 export const APP_NAME = 'TalentLink';
 
 export const TERMS = {
   label: 'Terms and Conditions (PDF)',
-  partnerPdf: '/terms/partner-terms-and-conditions.pdf',
+  partnerPdf: '/terms/candidate-terms-and-conditions.pdf',
   recruiterPdf: '/terms/recruiter-terms-and-conditions.pdf',
 };
 
@@ -54,7 +55,7 @@ export const NATIONALITY_OPTIONS: LabelledOption<string>[] = NATIONALITIES.map(v
 
 export const PARTNER_STATE_TAG: Record<PartnerState, TagStyle> = {
   [PartnerState.SignedUp]: { label: 'Signed up' },
-  [PartnerState.Verified]: { label: 'UC Verified', color: 'success' },
+  [PartnerState.Verified]: { label: 'Verified', color: 'success' },
   [PartnerState.VerificationFailed]: { label: 'Verification failed', color: 'error' },
   [PartnerState.Placed]: { label: 'Placed', color: 'purple' },
   [PartnerState.Joined]: { label: 'Joined', color: 'blue' },
@@ -120,6 +121,11 @@ export const COOKING_FREQUENCY_OPTIONS: LabelledOption<CookingFrequency>[] = Obj
 export const YES_NO_OPTIONS: LabelledOption<boolean>[] = [
   { value: true, label: 'Yes' },
   { value: false, label: 'No' },
+];
+
+export const YES_NO_FILTER_OPTIONS: LabelledOption<YesNoFilter>[] = [
+  { value: YesNoFilter.Yes, label: 'Yes' },
+  { value: YesNoFilter.No, label: 'No' },
 ];
 
 export const PLACED_STATES: PartnerState[] = [PartnerState.Placed, PartnerState.Joined];

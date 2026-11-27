@@ -17,6 +17,7 @@ import { isSingaporePhone } from '@/domain/phone';
 import { Notice } from '@/shared/components/ui';
 import {
   CONSENT_ERROR,
+  COOKING_WRAPPER_COL,
   NAME_PART_MAX_LENGTH,
   PRIMARY_PHONE_ERROR,
   REFERRER_ERROR,
@@ -80,7 +81,7 @@ export const PartnerDetailsForm = ({ mode, submitting, onSubmit }: PartnerDetail
               <Col xs={24} md={12}>
                 <Form.Item
                   name="singaporePhone"
-                  label="Singapore mobile number (optional)"
+                  label="Singapore mobile number"
                   extra={copy.singaporePhoneHint}
                   rules={[{ pattern: SINGAPORE_PHONE_PATTERN, message: SINGAPORE_PHONE_ERROR }]}
                 >
@@ -163,8 +164,8 @@ export const PartnerDetailsForm = ({ mode, submitting, onSubmit }: PartnerDetail
                   <Radio.Group optionType="button" options={YES_NO_OPTIONS} />
                 </Form.Item>
               </Col>
-              <Col xs={24} md={12}>
-                <Form.Item name="cookingFrequency" label={copy.cookingLabel} rules={[{ required: true }]}>
+              <Col xs={24}>
+                <Form.Item name="cookingFrequency" label={copy.cookingLabel} wrapperCol={COOKING_WRAPPER_COL} rules={[{ required: true }]}>
                   <Select placeholder="Select" options={COOKING_FREQUENCY_OPTIONS} />
                 </Form.Item>
               </Col>

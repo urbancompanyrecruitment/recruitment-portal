@@ -7,11 +7,12 @@ import { COLOR } from '@/theme/constant';
 import { CANDIDATE_AVATAR_STYLE } from './constant';
 import { PortalShellProps } from './interface';
 
-export const PortalShell = ({ role, workspace, navItems, sidebarFooter, headerExtra }: PortalShellProps) => {
+export const PortalShell = ({ role, workspace, navItems, crumbItems = [], sidebarFooter, headerExtra }: PortalShellProps) => {
   const user = useSessionUser(role);
   const { signOut } = useAuth();
   const location = useLocation();
   const activeItem = navItems.find(item => location.pathname.startsWith(item.path));
+  const crumbItem = activeItem ?? crumbItems.find(item => location.pathname.startsWith(item.path));
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -41,7 +42,7 @@ export const PortalShell = ({ role, workspace, navItems, sidebarFooter, headerEx
       <Layout>
         <Layout.Header className="portal-header">
           <Typography.Text type="secondary" className="small portal-header-crumb">
-            {workspace} / {activeItem?.label ?? 'Details'}
+            {workspace} / {crumbItem?.label ?? 'Details'}
           </Typography.Text>
           <Flex align="center" gap={12} className="portal-header-user">
             <Avatar style={CANDIDATE_AVATAR_STYLE}>{getInitials(user.name)}</Avatar>

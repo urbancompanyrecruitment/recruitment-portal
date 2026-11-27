@@ -11,3 +11,17 @@ export const CHANGE_PASSWORD = {
   currentRequired: 'Enter your current password',
   mismatch: 'Passwords do not match',
 };
+
+export const TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+export const TABLE_PAGINATION = {
+  defaultPageSize: 20,
+  pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS,
+  showSizeChanger: true,
+  showTotal: (total: number, [from, to]: [number, number]) => `${from}–${to} of ${total}`,
+};
+
+/** Columns shrink and wrap to fit the card; the table scrolls sideways only when wrapping is not enough. */
+export const TABLE_SCROLL = { x: true } as const;
+
+export const CARD_PAGE_SIZE = 12;

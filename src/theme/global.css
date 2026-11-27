@@ -60,6 +60,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 27px 20px;
+  overflow-y: auto;
 }
 
 .portal-sider-footer {
@@ -173,6 +174,7 @@ body {
 
 .staff-login-form > section {
   width: 380px;
+  max-width: 100%;
 }
 
 .muted {
@@ -189,7 +191,7 @@ body {
   }
 
   .staff-login {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .staff-login-hero {
@@ -273,4 +275,53 @@ body {
   .public-header {
     padding: 14px 17px;
   }
+
+  .public-header-identity {
+    display: none;
+  }
+}
+
+.public-header-actions a {
+  white-space: nowrap;
+}
+
+.table-search {
+  width: 320px;
+  max-width: 100%;
+}
+
+.list-filter {
+  min-width: 168px;
+}
+
+.list-filters {
+  padding: 16px;
+  border-bottom: 1px solid #e7e9f0;
+}
+
+/* One-column detail lists: fixed label column so every value starts at the same x. */
+.ant-descriptions:not(.ant-descriptions-bordered) .ant-descriptions-item-label {
+  flex: 0 0 168px;
+  padding-right: 12px;
+}
+
+/* Phones: label above its value instead of a squeezed two-column row. */
+@media (max-width: 576px) {
+  .ant-descriptions:not(.ant-descriptions-bordered) .ant-descriptions-item-container {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ant-descriptions:not(.ant-descriptions-bordered) .ant-descriptions-item-label {
+    flex-basis: auto;
+  }
+}
+
+/* Lists sit in cards with no body padding; keep the pager off the card edge. */
+.ant-card .ant-table-wrapper .ant-table-pagination.ant-pagination {
+  padding-inline: 16px;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
